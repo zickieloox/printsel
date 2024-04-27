@@ -1,0 +1,33 @@
+{
+  "name": "shared",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "pnpm run build",
+    "prebuild": "rimraf dist",
+    "build": "pnpm tsup index.ts --format cjs",
+    "dev": "pnpm run build --watch",
+    "lint": "eslint --ext .ts . --cache",
+    "lint:vercel": "eslint --ext .ts . --cache && mkdir dist && touch ./dist/index.html",
+    "lint:fix": "eslint --ext .js,.jsx,.ts . --fix --cache",
+    "build-types": "pnpm tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "eslint": "^8.49.0",
+    "eslint-config-custom": "0.0.0",
+    "tsconfig": "0.0.0",
+    "tsup": "^7.2.0",
+    "type-fest": "^4.6.0",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "zod": "^3.22.4"
+  }
+}

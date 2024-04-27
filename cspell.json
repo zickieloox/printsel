@@ -1,0 +1,100 @@
+// cSpell Settings
+{
+  // Version of the setting file.  Always 0.2
+  "version": "0.2",
+  // language - current active spelling language
+  "language": "en, vi",
+  "import": [
+    "@cspell/dict-vi-vn/cspell-ext.json"
+  ],
+  "ignorePaths": [
+    // Common
+    "cspell.json",
+    ".gitignore",
+    ".DS_Store",
+    ".git/",
+    ".idea/",
+    ".vscode/",
+    ".vscode/settings.json",
+    ".vscode/launch.json",
+    "*.config.js",
+    "*.config.mjs",
+    "temp/",
+    "tmp/",
+    "logs/",
+    ".*",
+    "*.txt",
+    "*.yml",
+    "*.md",
+    "*.sh",
+    "*tsconfig*",
+    "vi_VN/",
+    // JS
+    // "package.json",
+    "node_modules/",
+    "dist/",
+    "build/",
+    "coverage/",
+    "*.css",
+    "*.svg",
+    "*/**/metal-sign-order-control.html",
+    "yarn-error.log",
+    "pnpm-lock.yaml",
+    "doc.html"
+  ],
+  // words - list of words to be always considered correct
+  "words": [
+    "anatine",
+    "apng",
+    "astro",
+    "astrojs",
+    "backblaze",
+    "clsx",
+    "commitlint",
+    "copyfiles",
+    "cqrs",
+    "daisyui",
+    "dismissable",
+    "dtos",
+    "Fastify",
+    "KHTML",
+    "linebreak",
+    "lucide",
+    "maxlength",
+    "merch",
+    "nestjs",
+    "nocheck",
+    "nostyle",
+    "officedocument",
+    "openapi",
+    "openxmlformats",
+    "otplib",
+    "PARAMTYPES",
+    "pausable",
+    "postbuild",
+    "presigner",
+    "redoc",
+    "rspack",
+    "Shopbase",
+    "sonarjs",
+    "sonner",
+    "sortablejs",
+    "spreadsheetml",
+    "tailwindcss",
+    "tanstack",
+    "tiktok",
+    "tsup",
+    "virtuals",
+    "Woocommerce",
+    "zerodevx",
+    "Zickie",
+    "ZicTok",
+    "zustand"
+  ],
+  // flagWords - list of words to be always considered incorrect
+  // This is useful for offensive words and common spelling errors.
+  // For example "hte" should be "the"
+  "flagWords": [
+    "hte"
+  ]
+}
