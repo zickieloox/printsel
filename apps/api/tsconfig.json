@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "tsconfig/nestjs.json",
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "sourceRoot": "./src",
+    "paths": {
+      "@/*": ["./src/*"],
+    },
+    "declaration": true,
+    "declarationMap": true,
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"],
+  },
+  "include": ["src/**/*.ts", "vite.config.ts"],
+  "exclude": ["node_modules", "src/metadata.ts", "dist"],
+}
