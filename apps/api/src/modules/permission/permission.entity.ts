@@ -1,31 +1,27 @@
 import { Prop, SchemaFactory } from '@nestjs/mongoose';
-import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
+import { assertSameType, DatabaseEntity, DatabaseEntityAbstract } from 'core';
 import type { HydratedDocument } from 'mongoose';
-import { PermissionAction } from 'core';
-import { Status } from 'shared';
+import type { Permission } from 'shared';
+import { PermissionAction, Status } from 'shared';
 
 @DatabaseEntity({ collection: 'permissions' })
 export class PermissionEntity extends DatabaseEntityAbstract {
   @Prop({
     required: true,
-    trim: true,
-    maxlength: 50,
     unique: true,
   })
   name: string;
 
-  @Prop({
-    trim: true,
-    default: '',
-    maxlength: 200,
-  })
-  description: string;
+  @Prop()
+  description?: string;
 
   @Prop({
-    default: PermissionAction,
-    enum: PermissionAction.VIEW,
+    required: true,
+    type: String,
+    enum: PermissionAction,
+    default: PermissionAction.View,
   })
-  action: string;
+  action: PermissionAction;
 
   @Prop({
     type: String,
@@ -34,6 +30,9 @@ export class PermissionEntity extends DatabaseEntityAbstract {
   })
   status: Status;
 }
+
+assertSameType<Permission, PermissionEntity>();
+assertSameType<PermissionEntity, Permission>();
 
 export type PermissionDocument = HydratedDocument<PermissionEntity>;
 

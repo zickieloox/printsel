@@ -2,7 +2,7 @@ import { PopulateOptions } from 'mongoose';
 import { IPaginationOptions } from './IPagination';
 
 // find one
-export interface IDatabaseFindOneOptions<T = any> extends Pick<IPaginationOptions, 'order'> {
+export interface IDatabaseFindOneOptions<T = any> extends Pick<IPaginationOptions, 'sort'> {
   select?: Record<string, boolean | number> | string;
   populate?: boolean | PopulateOptions | PopulateOptions[];
   session?: T;
@@ -23,7 +23,7 @@ export type IDatabaseSaveOptions<T = any> = Pick<IDatabaseFindOneOptions<T>, 'se
 // find
 export interface IDatabaseFindAllOptions<T = any>
   extends IPaginationOptions,
-    Omit<IDatabaseFindOneOptions<T>, 'order'> {}
+    Omit<IDatabaseFindOneOptions<T>, 'sort'> {}
 
 // create
 
@@ -53,7 +53,7 @@ export type IDatabaseRawOptions<T = any> = Pick<IDatabaseFindOneOptions<T>, 'ses
 
 export type IDatabaseRawFindAllOptions<T = any> = Pick<
   IDatabaseFindAllOptions<T>,
-  'order' | 'paging' | 'session' | 'withDeleted'
+  'sort' | 'paging' | 'session' | 'withDeleted'
 >;
 
 export type IDatabaseRawGetTotalOptions<T = any> = Pick<IDatabaseRawFindAllOptions<T>, 'session' | 'withDeleted'>;

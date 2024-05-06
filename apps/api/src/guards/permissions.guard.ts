@@ -1,9 +1,7 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Status } from 'shared';
-
-import { RoleType } from '@/constants';
+import { RoleType, Status } from 'shared';
 
 import { RoleService } from '../modules/role/role.service';
 import type { UserDocument } from '../modules/user/user.entity';
@@ -25,13 +23,13 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    if (user.role?.name === RoleType.Admin) {
+    if (user.role?.name === RoleType.SuperAdmin) {
       return true;
     }
 
     const role = await this.roleService.findOneById(user.role!._id);
 
-    if (!role) {
+    if (!role.permissions) {
       return false;
     }
 

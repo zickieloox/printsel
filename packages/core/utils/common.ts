@@ -2,8 +2,6 @@ import * as bcrypt from 'bcrypt';
 
 /**
  * generate hash from password or string
- * @param {string} password
- * @returns {string}
  */
 export function generateHash(password: string): string {
   return bcrypt.hashSync(password, 10);
@@ -37,10 +35,8 @@ export const convertEndDate = (time: string) => {
 
 /**
  * generating random password for user
- * @param {number} length
- * @returns {string}
  */
-export function generateRandomPassword(length: number): string {
+export function generateRandomPassword(length = 12): string {
   const uppercaseLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lowercaseLetters = 'abcdefghijklmnopqrstuvwxyz';
   const numbers = '0123456789';
@@ -68,9 +64,6 @@ export function generateRandomPassword(length: number): string {
 
 /**
  * validate text with hash
- * @param {string} password
- * @param {string} hash
- * @returns {Promise<boolean>}
  */
 export function validateHash(password: string | undefined, hash: string | undefined): Promise<boolean> {
   if (!password || !hash) {
@@ -80,31 +73,8 @@ export function validateHash(password: string | undefined, hash: string | undefi
   return bcrypt.compare(password, hash);
 }
 
-export function getVariableName<TResult>(getVar: () => TResult): string | undefined {
-  const m = /\(\)=>(.*)/.exec(getVar.toString().replaceAll(/(\r\n|\n|\r|\s)/gm, ''));
-
-  if (!m) {
-    // For rspack build - `return shared_dist_constants__WEBPACK_IMPORTED_MODULE_1_.Status;`
-    const otherName = getVar.toString().split('.').pop();
-
-    if (!otherName) {
-      throw new Error("The function does not contain a statement matching 'return variableName;'");
-    }
-
-    return otherName;
-  }
-
-  const fullMemberName = m[1];
-
-  const memberParts = fullMemberName.split('.');
-
-  return memberParts.at(-1);
-}
-
 /**
  * random string with specific length
- * @param {number} length
- * @returns {string}
  */
 export function randomString(length: number): string {
   let result = '';

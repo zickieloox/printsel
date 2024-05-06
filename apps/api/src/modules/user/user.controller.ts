@@ -1,18 +1,19 @@
+import { ZodValidationPipe } from '@anatine/zod-nestjs';
 import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post, Query, UsePipes } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from 'core';
-import { Logger, query } from 'winston';
+import type { UpdateUserResDto } from 'shared';
+import { GetUsersDto, GetUsersResDto, RoleType, UpdateUserDto } from 'shared';
+import { Logger } from 'winston';
 
-import { RoleType } from '@/constants';
 import { Auth } from '@/decorators';
 
+import { UserDocument } from './user.entity';
 import { UserService } from './user.service';
-import { ZodValidationPipe } from '@anatine/zod-nestjs';
-import { GetUsersDto, GetUsersResDto, UpdateUserDto, UpdateUserResDto } from './user.dto';
-import { UserDocument, UserEntity } from './user.entity';
 
 @Controller('users')
 @ApiTags('users')
+@UsePipes(ZodValidationPipe)
 export class UserController {
   constructor(
     private userService: UserService,
@@ -20,7 +21,7 @@ export class UserController {
   ) {}
 
   @Get()
-  // @Auth([RoleType.Admin])
+  @Auth([RoleType.Admin])
   @ApiOperation({
     summary: 'Get users',
   })
@@ -28,7 +29,6 @@ export class UserController {
   @ApiCreatedResponse({
     type: GetUsersResDto,
   })
-  @UsePipes(ZodValidationPipe)
   async getUsers(
     @Query()
     getUsersDto: GetUsersDto,
@@ -51,9 +51,8 @@ export class UserController {
   @ApiOperation({
     summary: 'Update user',
   })
-  @Auth()
   @HttpCode(HttpStatus.OK)
-  @ApiCreatedResponse({
+  @ApiOkResponse({
     type: UpdateUserDto,
   })
   async updateUser(@Body() updateUserDto: UpdateUserDto, @AuthUser() user: UserDocument): Promise<UpdateUserResDto> {
@@ -68,7 +67,6 @@ export class UserController {
       }),
     });
 
-    /// @ts-ignore
     return await this.userService.updateUser(updateUserDto, user);
   }
 }

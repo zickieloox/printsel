@@ -1,26 +1,27 @@
 import { DeleteObjectsCommand, ListObjectsCommand, ObjectCannedACL, PutObjectCommand, S3 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { ResponseDto, UploadFileDto } from '@core/dtos';
+import type { UploadedFileDto } from '@core/dtos';
 import { Injectable } from '@nestjs/common';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import * as https from 'https';
-import { nanoid } from 'nanoid';
 import type { IFile } from '@core/interfaces';
+import { myNanoid, ResDto } from 'shared';
+import { getUTCDate } from '@core/utils/getUTCDate';
 
-interface IS3Config {
+type S3Config = {
   endpoint: string;
   bucketApiVersion: string;
   bucketRegion: string;
   bucketName: string;
   accessKey: string;
   secretKey: string;
-}
+};
 
 @Injectable()
 export class AwsS3Service {
   private readonly s3: S3;
 
-  constructor(private readonly s3Config: IS3Config) {
+  constructor(private readonly s3Config: S3Config) {
     this.s3 = new S3({
       endpoint: this.s3Config.endpoint,
       apiVersion: this.s3Config.bucketApiVersion,
@@ -37,16 +38,17 @@ export class AwsS3Service {
     });
   }
 
-  async uploadImage(file: IFile, bucketName: string, folderSuffix = ''): Promise<UploadFileDto> {
-    const randomFileName = nanoid(20);
+  async uploadImage(imageId: string, file: IFile, bucketName: string, folder = ''): Promise<UploadedFileDto> {
     const fileExtension = file.mimetype.split('/')[1];
-    const key = `${randomFileName}.${fileExtension}`;
-    const currentTime = new Date().toLocaleDateString('en-ZA');
+    const newFolder = (bucketName.split('/')[1] || '') + folder + '/' + getUTCDate();
+    const key = newFolder + '/' + `${imageId}.${fileExtension}`;
+
+    console.log('key', key, bucketName, newFolder);
     const uploadedFile = await this.s3.putObject({
       Bucket: bucketName.split('/')[0],
       Body: file.buffer,
-      ACL: 'public-read',
-      Key: bucketName.split('/')[1] + folderSuffix + '/' + currentTime + '/' + key,
+      // ACL: 'public-read',
+      Key: key,
       ContentType: file.mimetype,
     });
 
@@ -54,8 +56,8 @@ export class AwsS3Service {
       key,
       bucket: bucketName.split('/')[0],
       region: this.s3Config.bucketRegion,
-      folder: (bucketName.split('/')[1] || '') + folderSuffix + '/' + currentTime,
-      fileId: uploadedFile.VersionId,
+      objectId: uploadedFile.VersionId!,
+      url: `${bucketName}/${key}`,
     };
   }
 
@@ -72,7 +74,7 @@ export class AwsS3Service {
     return await getSignedUrl(this.s3, command, { expiresIn: 3600 });
   }
 
-  async deleteImage(key: string): Promise<ResponseDto> {
+  async deleteImage(key: string): Promise<ResDto> {
     try {
       const result = await this.s3.deleteObject({
         Bucket: this.s3Config.bucketName.split('/')[0],
@@ -91,7 +93,7 @@ export class AwsS3Service {
     }
   }
 
-  async deleteMultiImages(keys: string[]): Promise<ResponseDto> {
+  async deleteMultiImages(keys: string[]): Promise<ResDto> {
     try {
       const command = new DeleteObjectsCommand({
         Bucket: this.s3Config.bucketName.split('/')[0],
@@ -107,8 +109,7 @@ export class AwsS3Service {
 
       return {
         success: true,
-        message: `Successfully deleted ${Deleted?.length} objects from S3 bucket`,
-        data: Deleted?.map((d, index) => `${index + 1} • ${d.Key}`) || [],
+        data: Deleted?.map((d, index) => `${index + 1} - ${d.Key}`) || [],
       };
     } catch (error) {
       return {

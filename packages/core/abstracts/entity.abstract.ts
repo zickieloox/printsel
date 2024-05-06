@@ -1,24 +1,20 @@
 import { Prop } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
-import {
-  DATABASE_CREATED_AT_FIELD_NAME,
-  DATABASE_DELETED_AT_FIELD_NAME,
-  DATABASE_UPDATED_AT_FIELD_NAME,
-} from '@core/constants';
+import { customAlphabet } from 'nanoid';
+import { ID_LENGTH } from 'shared';
 
 export abstract class DatabaseEntityAbstract {
   @Prop({
-    type: Types.ObjectId,
-    default: new Types.ObjectId(),
+    type: String,
+    default: () => customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', ID_LENGTH)(), // myId()
   })
-  _id: Types.ObjectId;
+  _id?: string;
 
   @Prop({
     required: false,
-    index: true,
+    index: 'asc',
     type: Date,
   })
-  [DATABASE_DELETED_AT_FIELD_NAME]?: Date;
+  deletedAt?: Date;
 
   @Prop({
     required: false,
@@ -26,7 +22,7 @@ export abstract class DatabaseEntityAbstract {
     type: Date,
     // default: new Date(),
   })
-  [DATABASE_CREATED_AT_FIELD_NAME]?: Date;
+  createdAt?: Date;
 
   @Prop({
     required: false,
@@ -34,5 +30,5 @@ export abstract class DatabaseEntityAbstract {
     type: Date,
     // default: new Date(),
   })
-  [DATABASE_UPDATED_AT_FIELD_NAME]?: Date;
+  updatedAt?: Date;
 }

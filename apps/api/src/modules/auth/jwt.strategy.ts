@@ -1,13 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Types } from 'mongoose';
-import { ExtractJwt, Strategy } from 'passport-jwt';
 import { TokenType } from 'core';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { RoleType } from 'shared';
 
-import type { RoleType } from '@/constants';
-import type { UserEntity } from '@/modules/user/user.entity';
 import { UserService } from '@/modules/user/user.service';
 import { ApiConfigService } from '@/shared/services';
+
+import type { UserDocument } from '../user/user.entity';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -21,14 +21,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(args: { userId: string; role: RoleType; type: TokenType }): Promise<UserEntity> {
+  async validate(args: { userId: string; role: RoleType; type: TokenType }): Promise<UserDocument> {
     if (args.type !== TokenType.ACCESS_TOKEN) {
       throw new UnauthorizedException();
     }
 
-    const user = await this.userService.findOne({
-      _id: new Types.ObjectId(args.userId) as never,
+    const user = await this.userService.findByIdOrUsernameOrEmail({
+      _id: args.userId,
     });
+
+    // @ts-expect-error hide password
+    user.password = undefined;
 
     if (!user) {
       throw new UnauthorizedException();

@@ -1,11 +1,10 @@
-import { Prop, raw, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, SchemaFactory } from '@nestjs/mongoose';
 import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
 import { type HydratedDocument, Types } from 'mongoose';
-import type { IOrderStatusLog, IShippingEvent } from 'shared';
-import { IOrderTracking, IShippingAddress, OrderStatus, OrderType, ShippingMethod, ShippingStatus } from 'shared';
+import { FulfillPlatform, OrderStatus, OrderType, ShippingMethod, ShippingStatus } from 'shared';
 
 import type { OrderItemEntity } from '@/modules/order-item/order-item.entity';
-import { StoreEntity } from '@/modules/store/store.entity';
+// import { StoreEntity } from '@/modules/store/store.entity';
 import { UserEntity } from '@/modules/user/user.entity';
 
 @DatabaseEntity({ collection: 'orders' })
@@ -22,46 +21,53 @@ export class OrderEntity extends DatabaseEntityAbstract {
   })
   name: string;
 
-  @Prop({
-    required: true,
-    type: raw({
-      firstName: String,
-      lastName: String,
-      email: String,
-      phone: String,
-      addressLine1: String,
-      addressLine2: String,
-      city: String,
-      zip: String,
-      region: String,
-      country: String,
-    }),
-    _id: false,
-  })
-  shippingAddress: IShippingAddress;
+  // @Prop({
+  //   required: true,
+  //   type: raw({
+  //     firstName: String,
+  //     lastName: String,
+  //     email: String,
+  //     phone: String,
+  //     addressLine1: String,
+  //     addressLine2: String,
+  //     city: String,
+  //     zip: String,
+  //     region: String,
+  //     country: String,
+  //   }),
+  //   _id: false,
+  // })
+  // shippingAddress: IShippingAddress;
 
   @Prop({
     required: true,
     type: String,
     enum: ShippingMethod,
-    default: ShippingMethod.STANDARD,
+    default: ShippingMethod.Standard,
   })
   shippingMethod: ShippingMethod;
 
   @Prop({
     required: true,
     type: String,
-    enum: OrderType,
-    default: OrderType.MANUAL,
+    enum: FulfillPlatform,
   })
-  type: OrderType;
+  fulfillPlatform: FulfillPlatform;
 
   @Prop({
     required: true,
-    type: Types.ObjectId,
-    ref: 'StoreEntity',
+    type: String,
+    enum: OrderType,
+    default: OrderType.Manual,
   })
-  store: StoreEntity;
+  type: OrderType;
+
+  // @Prop({
+  //   required: true,
+  //   type: Types.ObjectId,
+  //   ref: 'StoreEntity',
+  // })
+  // store: StoreEntity;
 
   @Prop({
     required: true,
@@ -74,7 +80,7 @@ export class OrderEntity extends DatabaseEntityAbstract {
     required: true,
     type: String,
     enum: OrderStatus,
-    default: OrderStatus.PENDING,
+    default: OrderStatus.Pending,
   })
   status: OrderStatus;
 
@@ -86,49 +92,49 @@ export class OrderEntity extends DatabaseEntityAbstract {
   })
   priority: number;
 
-  @Prop({
-    type: [
-      raw({
-        date: Date,
-        status: String,
-      }),
-    ],
-    _id: false,
-  })
-  shippingEvents: IShippingEvent[];
+  // @Prop({
+  //   type: [
+  //     raw({
+  //       date: Date,
+  //       status: String,
+  //     }),
+  //   ],
+  //   _id: false,
+  // })
+  // shippingEvents: IShippingEvent[];
 
   @Prop({
     required: true,
     type: String,
     enum: ShippingStatus,
-    default: ShippingStatus.PENDING,
+    default: ShippingStatus.Pending,
   })
   shippingStatus: ShippingStatus;
 
-  @Prop({
-    type: raw({
-      trackingNumber: String,
-      carrierName: String,
-      carrierCode: String,
-      trackingUrl: String,
-      platformOrderUrl: String,
-      shippingLabelUrl: String,
-    }),
-    _id: false,
-  })
-  tracking?: IOrderTracking;
+  // @Prop({
+  //   type: raw({
+  //     trackingNumber: String,
+  //     carrierName: String,
+  //     carrierCode: String,
+  //     trackingUrl: String,
+  //     platformOrderUrl: String,
+  //     shippingLabelUrl: String,
+  //   }),
+  //   _id: false,
+  // })
+  // tracking?: IOrderTracking;
 
-  @Prop({
-    required: true,
-    default: [
-      {
-        date: new Date(),
-        status: OrderStatus.PENDING,
-        statusChanged: true,
-      },
-    ],
-  })
-  logs: IOrderStatusLog[];
+  // @Prop({
+  //   required: true,
+  //   default: [
+  //     {
+  //       date: new Date(),
+  //       status: OrderStatus.Pending,
+  //       statusChanged: true,
+  //     },
+  //   ],
+  // })
+  // logs: IOrderStatusLog[];
 
   @Prop({
     required: true,

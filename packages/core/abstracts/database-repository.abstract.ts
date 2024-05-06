@@ -1,14 +1,15 @@
 import {
   ClientSession,
   Model,
+  Document,
   PipelineStage,
   PopulateOptions,
-  Types,
-  Document,
   UpdateWithAggregationPipeline,
   UpdateQuery,
-  model,
   FilterQuery,
+  IfAny,
+  MergeType,
+  Require_id,
 } from 'mongoose';
 import { DATABASE_DELETED_AT_FIELD_NAME } from '@core/constants';
 import {
@@ -22,15 +23,12 @@ import {
   IDatabaseSoftDeleteManyOptions,
   IDatabaseRestoreManyOptions,
   IDatabaseRawOptions,
-  IDatabaseSaveOptions,
   IDatabaseFindOneLockOptions,
   IDatabaseRawFindAllOptions,
   IDatabaseRawGetTotalOptions,
 } from '@core/interfaces/IDatabaseRepository';
-import { ENUM_PAGINATION_ORDER_DIRECTION_TYPE } from '@core/constants';
+import { OrderDirection } from '@core/constants';
 import { DatabaseEntityAbstract } from './entity.abstract';
-import { find } from 'rxjs';
-import { create } from 'lodash';
 
 export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAbstract, EntityDocument> {
   protected _repository: Model<Entity>;
@@ -58,11 +56,11 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     }
 
     if (options?.paging) {
-      findAll.limit(options.paging.limit).skip(options.paging.offset);
+      findAll.limit(options.paging.limit).skip(options.paging.skip);
     }
 
-    if (options?.order) {
-      findAll.sort(options.order);
+    if (options?.sort) {
+      findAll.sort(options.sort);
     }
 
     if (options?.populate) {
@@ -80,13 +78,15 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findAll.session(options.session);
     }
 
-    return options?.lean ? findAll.lean() : findAll.exec();
+    const data = options?.lean === false ? await findAll.exec() : await findAll.lean().exec();
+
+    return data as T[];
   }
 
   async findAllAndCount<T = EntityDocument>(
     find?: FilterQuery<Entity>,
     options?: IDatabaseFindAllOptions<ClientSession>,
-  ): Promise<[T[], number]> {
+  ): Promise<{ data: T[]; total: number }> {
     const findAll = this._repository.find<T>(find ? find : {});
 
     const total = await this.getTotal(find, options);
@@ -100,11 +100,11 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     }
 
     if (options?.paging) {
-      findAll.limit(options.paging.limit).skip(options.paging.offset);
+      findAll.limit(options.paging.limit).skip(options.paging.skip);
     }
 
-    if (options?.order) {
-      findAll.sort(options.order);
+    if (options?.sort) {
+      findAll.sort(options.sort);
     }
 
     if (options?.populate) {
@@ -122,9 +122,9 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findAll.session(options.session);
     }
 
-    const result = options?.lean ? await findAll.lean() : await findAll.exec();
+    const data = options?.lean === false ? await findAll.exec() : await findAll.lean().exec();
 
-    return [result as T[], total];
+    return { data: data as T[], total };
   }
 
   async findAllDistinct<T = EntityDocument>(
@@ -143,11 +143,11 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     }
 
     if (options?.paging) {
-      findAll.limit(options.paging.limit).skip(options.paging.offset);
+      findAll.limit(options.paging.limit).skip(options.paging.skip);
     }
 
-    if (options?.order) {
-      findAll.sort(options.order);
+    if (options?.sort) {
+      findAll.sort(options.sort);
     }
 
     if (options?.populate) {
@@ -165,7 +165,9 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findAll.session(options.session);
     }
 
-    return (options?.lean ? findAll.lean() : findAll.exec()) as any;
+    const data = options?.lean === false ? await findAll.exec() : await findAll.lean().exec();
+
+    return data as T[];
   }
 
   async findOne<T = EntityDocument>(
@@ -197,18 +199,20 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findOne.session(options.session);
     }
 
-    if (options?.order) {
-      findOne.sort(options.order);
+    if (options?.sort) {
+      findOne.sort(options.sort);
     }
 
-    return options?.lean ? findOne.lean() : findOne.exec();
+    const data = options?.lean === false ? await findOne.exec() : await findOne.lean().exec();
+
+    return data as T;
   }
 
   async findOneById<T = EntityDocument>(
-    _id: string | Types.ObjectId,
+    _id: string,
     options?: IDatabaseFindOneOptions<ClientSession>,
   ): Promise<T | null> {
-    const findOne = this._repository.findById<T>(new Types.ObjectId(_id));
+    const findOne = this._repository.findById<T>(_id);
 
     if (!options?.withDeleted) {
       findOne.where(DATABASE_DELETED_AT_FIELD_NAME).exists(false);
@@ -233,11 +237,13 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findOne.session(options.session);
     }
 
-    if (options?.order) {
-      findOne.sort(options.order);
+    if (options?.sort) {
+      findOne.sort(options.sort);
     }
 
-    return options?.lean ? findOne.lean() : findOne.exec();
+    const data = options?.lean === false ? await findOne.exec() : await findOne.lean().exec();
+
+    return data as T;
   }
 
   async updateOne<T = EntityDocument>(find: FilterQuery<T>, update: UpdateQuery<Entity>): Promise<boolean> {
@@ -278,19 +284,19 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findOne.session(options.session);
     }
 
-    if (options?.order) {
-      findOne.sort(options.order);
+    if (options?.sort) {
+      findOne.sort(options.sort);
     }
 
     return findOne.exec();
   }
 
   async findOneByIdAndUpdate<T = EntityDocument>(
-    _id: string | Types.ObjectId,
+    _id: string,
     data: UpdateQuery<Entity>,
     options?: IDatabaseFindOneLockOptions<ClientSession>,
   ): Promise<T | null> {
-    const findOne = this._repository.findOneAndUpdate<T>({ _id: new Types.ObjectId(_id) }, data, {
+    const findOne = this._repository.findOneAndUpdate<T>({ _id: _id }, data, {
       new: true,
     });
 
@@ -317,8 +323,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findOne.session(options.session);
     }
 
-    if (options?.order) {
-      findOne.sort(options.order);
+    if (options?.sort) {
+      findOne.sort(options.sort);
     }
 
     return findOne.exec();
@@ -356,18 +362,18 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findOne.session(options.session);
     }
 
-    if (options?.order) {
-      findOne.sort(options.order);
+    if (options?.sort) {
+      findOne.sort(options.sort);
     }
 
     return findOne.exec();
   }
 
   async findOneByIdAndLock<T = EntityDocument>(
-    _id: string | Types.ObjectId,
+    _id: string,
     options?: IDatabaseFindOneLockOptions<ClientSession>,
   ): Promise<T | null> {
-    const findOne = this._repository.findByIdAndUpdate<T>(new Types.ObjectId(_id), {
+    const findOne = this._repository.findByIdAndUpdate<T>(_id, {
       new: true,
       useFindAndModify: false,
     });
@@ -395,8 +401,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       findOne.session(options.session);
     }
 
-    if (options?.order) {
-      findOne.sort(options.order);
+    if (options?.sort) {
+      findOne.sort(options.sort);
     }
 
     return findOne.exec();
@@ -432,7 +438,7 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       find = {
         ...find,
         _id: {
-          $nin: options?.excludeId.map((val) => new Types.ObjectId(val)) ?? [],
+          $nin: options?.excludeId.map((val) => val) ?? [],
         },
       };
     }
@@ -468,7 +474,7 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     const dataCreate = data;
 
     if (options?._id) {
-      dataCreate._id = new Types.ObjectId(options?._id);
+      dataCreate._id = options?._id;
     }
 
     const created = await this._repository.create([dataCreate], {
@@ -478,120 +484,136 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     return created[0] as EntityDocument;
   }
 
-  async save(
-    repository: EntityDocument & Document<Types.ObjectId>,
-    options?: IDatabaseSaveOptions,
-  ): Promise<EntityDocument> {
-    return repository.save(options);
+  // async save(
+  //   repository: EntityDocument & Document<Types.ObjectId>,
+  //   options?: IDatabaseSaveOptions,
+  // ): Promise<EntityDocument> {
+  //   return repository.save(options);
+  // }
+
+  // async permanentlyDelete(
+  //   repository: EntityDocument & Document<Types.ObjectId>,
+  //   options?: IDatabaseSaveOptions,
+  // ): Promise<EntityDocument> {
+  //   return repository.deleteOne(options);
+  // }
+
+  async softDelete<T = EntityDocument>(
+    find: FilterQuery<T>,
+    options?: IDatabaseFindOneLockOptions<ClientSession>,
+  ): Promise<boolean> {
+    const findOne = this._repository.updateOne<EntityDocument>(
+      find,
+      {
+        deletedAt: new Date(),
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (options?.session) {
+      findOne.session(options.session);
+    }
+
+    const result = await findOne.exec();
+
+    if (result.matchedCount === 0) {
+      throw new Error('Soft delete failed');
+    }
+
+    return true;
   }
 
-  async permanentlyDelete(
-    repository: EntityDocument & Document<Types.ObjectId>,
-    options?: IDatabaseSaveOptions,
-  ): Promise<EntityDocument> {
-    return repository.deleteOne(options);
-  }
-
-  async softDelete(
-    repository: EntityDocument & Document<Types.ObjectId> & { deletedAt?: Date },
-    options?: IDatabaseSaveOptions,
-  ): Promise<EntityDocument> {
-    repository.deletedAt = new Date();
-    return repository.save(options);
-  }
-
-  async restore(
-    repository: EntityDocument & Document<Types.ObjectId> & { deletedAt?: Date },
-    options?: IDatabaseSaveOptions,
-  ): Promise<EntityDocument> {
-    repository.deletedAt = undefined;
-    return repository.save(options);
-  }
+  // async restore(
+  //   repository: EntityDocument & Document<Types.ObjectId> & { deletedAt?: Date },
+  //   options?: IDatabaseSaveOptions,
+  // ): Promise<EntityDocument> {
+  //   repository.deletedAt = undefined;
+  //   return repository.save(options);
+  // }
 
   // bulk
   async createMany<Dto = Partial<Entity>[]>(
     data: Partial<Entity>[],
     options?: IDatabaseCreateManyOptions<ClientSession>,
-  ): Promise<boolean> {
-    const dataCreate: Record<string, any>[] = data.map((val) => ({
-      ...val,
-      _id: new Types.ObjectId(val._id),
-    }));
-
-    const create = this._repository.insertMany(dataCreate, {
+  ): Promise<
+    Array<
+      MergeType<
+        IfAny<Entity, any, Document<unknown, {}, Entity> & Require_id<Entity>>,
+        Omit<Array<Partial<Entity>>, '_id'>
+      >
+    >
+  > {
+    const create = this._repository.insertMany(data, {
       session: options ? options.session : undefined,
     });
 
-    try {
-      await create;
-      return true;
-    } catch (err: unknown) {
-      throw err;
-    }
+    return await create;
   }
 
-  async deleteManyByIds(_id: string[], options?: IDatabaseManyOptions<ClientSession>): Promise<boolean> {
-    const del = this._repository.deleteMany({
-      _id: {
-        $in: _id.map((val) => new Types.ObjectId(val)),
-      },
-    });
+  // async permanentlyDeleteByIds(_id: string[], options?: IDatabaseManyOptions<ClientSession>): Promise<boolean> {
+  //   const del = this._repository.deleteMany({
+  //     _id: {
+  //       $in: _id,
+  //     },
+  //   });
 
-    if (options?.session) {
-      del.session(options.session);
-    }
+  //   if (options?.session) {
+  //     del.session(options.session);
+  //   }
 
-    if (options?.populate) {
-      if (typeof options.populate === 'boolean') {
-        if (!this._joinOnFind) {
-          throw new Error('You should provide the populate option');
-        }
-        del.populate(this._joinOnFind);
-      } else {
-        del.populate(options.populate);
-      }
-    }
+  //   if (options?.populate) {
+  //     if (typeof options.populate === 'boolean') {
+  //       if (!this._joinOnFind) {
+  //         throw new Error('You should provide the populate option');
+  //       }
+  //       del.populate(this._joinOnFind);
+  //     } else {
+  //       del.populate(options.populate);
+  //     }
+  //   }
 
-    try {
-      await del;
-      return true;
-    } catch (err: unknown) {
-      throw err;
-    }
-  }
+  //   try {
+  //     await del;
+  //     return true;
+  //   } catch (error: unknown) {
+  //     throw error;
+  //   }
+  // }
 
-  async deleteMany(find: Record<string, any>, options?: IDatabaseManyOptions<ClientSession>): Promise<boolean> {
-    const del = this._repository.deleteMany(find);
+  // async permanentlyDeleteMany(find: Record<string, any>, options?: IDatabaseManyOptions<ClientSession>): Promise<boolean> {
+  //   const del = this._repository.deleteMany(find);
 
-    if (options?.session) {
-      del.session(options.session);
-    }
+  //   if (options?.session) {
+  //     del.session(options.session);
+  //   }
 
-    if (options?.populate) {
-      if (typeof options.populate === 'boolean') {
-        if (!this._joinOnFind) {
-          throw new Error('You should provide the populate option');
-        }
-        del.populate(this._joinOnFind);
-      } else {
-        del.populate(options.populate);
-      }
-    }
+  //   if (options?.populate) {
+  //     if (typeof options.populate === 'boolean') {
+  //       if (!this._joinOnFind) {
+  //         throw new Error('You should provide the populate option');
+  //       }
+  //       del.populate(this._joinOnFind);
+  //     } else {
+  //       del.populate(options.populate);
+  //     }
+  //   }
 
-    try {
-      await del;
-      return true;
-    } catch (err: unknown) {
-      throw err;
-    }
-  }
+  //   try {
+  //     await del;
+  //     return true;
+  //   } catch (error: unknown) {
+  //     throw error;
+  //   }
+  // }
 
   async softDeleteManyByIds(_id: string[], options?: IDatabaseSoftDeleteManyOptions<ClientSession>): Promise<boolean> {
     const softDel = this._repository
       .updateMany(
         {
           _id: {
-            $in: _id.map((val) => new Types.ObjectId(val)),
+            $in: _id,
           },
         },
         {
@@ -621,8 +643,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     try {
       await softDel;
       return true;
-    } catch (err: unknown) {
-      throw err;
+    } catch (error: unknown) {
+      throw error;
     }
   }
 
@@ -657,8 +679,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     try {
       await softDel;
       return true;
-    } catch (err: unknown) {
-      throw err;
+    } catch (error: unknown) {
+      throw error;
     }
   }
 
@@ -667,7 +689,7 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       .updateMany(
         {
           _id: {
-            $in: _id.map((val) => new Types.ObjectId(val)),
+            $in: _id,
           },
         },
         {
@@ -697,8 +719,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     try {
       await rest;
       return true;
-    } catch (err: unknown) {
-      throw err;
+    } catch (error: unknown) {
+      throw error;
     }
   }
 
@@ -730,8 +752,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     try {
       await rest;
       return true;
-    } catch (err: unknown) {
-      throw err;
+    } catch (error: unknown) {
+      throw error;
     }
   }
 
@@ -765,8 +787,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     try {
       await update;
       return true;
-    } catch (err: unknown) {
-      throw err;
+    } catch (error: unknown) {
+      throw error;
     }
   }
 
@@ -797,8 +819,8 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     try {
       await update;
       return true;
-    } catch (err: unknown) {
-      throw err;
+    } catch (error: unknown) {
+      throw error;
     }
   }
 
@@ -847,13 +869,13 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
       });
     }
 
-    if (options?.order) {
-      const keysOrder = Object.keys(options?.order);
+    if (options?.sort) {
+      const keysOrder = Object.keys(options?.sort);
       pipeline.push({
         $sort: keysOrder.reduce(
           (a, b) => ({
             ...a,
-            [b]: options?.order![b] === ENUM_PAGINATION_ORDER_DIRECTION_TYPE.ASC ? 1 : -1,
+            [b]: options?.sort![b] === OrderDirection.ASC ? 1 : -1,
           }),
           {},
         ),
@@ -863,9 +885,9 @@ export abstract class DatabaseRepositoryAbstract<Entity extends DatabaseEntityAb
     if (options?.paging) {
       pipeline.push(
         {
-          $limit: options.paging.limit + options.paging.offset,
+          $limit: options.paging.limit + options.paging.skip,
         },
-        { $skip: options.paging.offset },
+        { $skip: options.paging.skip },
       );
     }
 

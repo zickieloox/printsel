@@ -1,19 +1,20 @@
 import { Prop, SchemaFactory } from '@nestjs/mongoose';
-import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
-import { type HydratedDocument, Types } from 'mongoose';
-import { Status } from 'shared';
+import { assertSameType, DatabaseEntity, DatabaseEntityAbstract } from 'core';
+import { type HydratedDocument } from 'mongoose';
+import type { Product } from 'shared';
+import { ID_LENGTH, Status } from 'shared';
 
-// import { CategoryEntity } from '@/modules/category/category.entity';
-import type { ProductVariantEntity } from '@/modules/product-variant/product-variant.entity';
-import { FileEntity } from '@/modules/upload/file.entity';
-import { UserEntity } from '@/modules/user/user.entity';
+import type { CategoryDocument } from '../category/category.entity';
+import type { ProductVariantDocument } from '../product-variant/product-variant.entity';
+import type { ImageDocument } from '../upload/image.entity';
+import type { UserDocument } from '../user/user.entity';
 
 @DatabaseEntity({ collection: 'products' })
 export class ProductEntity extends DatabaseEntityAbstract {
   @Prop({
     required: true,
     trim: true,
-    unique: true,
+    index: true,
   })
   title: string;
 
@@ -23,7 +24,15 @@ export class ProductEntity extends DatabaseEntityAbstract {
     unique: true,
     uppercase: true,
   })
-  productCode: string;
+  code: string;
+
+  @Prop({
+    required: true,
+    trim: true,
+    unique: true,
+    uppercase: true,
+  })
+  sku: string;
 
   @Prop({
     required: true,
@@ -33,81 +42,120 @@ export class ProductEntity extends DatabaseEntityAbstract {
   })
   status: Status;
 
-  @Prop({
-    trim: true,
-    index: true,
-  })
-  description?: string;
+  @Prop()
+  description: string;
 
-  // @Prop({
-  //   type: Types.ObjectId,
-  //   ref: 'CategoryEntity',
-  // })
-  // category: CategoryEntity;
+  @Prop({
+    type: String,
+    ref: 'CategoryEntity',
+  })
+  categoryId: string;
 
   @Prop({
     required: true,
     type: Number,
   })
-  price: string;
+  price: number;
 
   @Prop({
-    type: Types.ObjectId,
-    ref: 'FileEntity',
+    required: true,
+    type: [String],
+    ref: 'ImageEntity',
   })
-  mainImage: FileEntity;
-
-  @Prop({
-    type: [Types.ObjectId],
-    ref: 'FileEntity',
-    default: [],
-  })
-  otherImages: FileEntity[];
+  imageIds: string[];
 
   @Prop({
     required: true,
   })
-  productionTime: string;
+  productionTimeStart: number;
 
   @Prop({
     required: true,
   })
-  shippingTime: string;
+  productionTimeEnd: number;
+
+  @Prop({
+    required: true,
+  })
+  shippingTimeStart: number;
+
+  @Prop({
+    required: true,
+  })
+  shippingTimeEnd: number;
 
   @Prop()
-  notes?: string;
-
-  @Prop()
-  personalization?: string;
+  note?: string;
 
   @Prop({
     type: [String],
-    default: ['size', 'color', 'style'],
+    default: [],
   })
-  propertyOrder: string[];
+  optionNames: string[];
 
   @Prop({
-    type: [Types.ObjectId],
+    type: [String],
     default: [],
     ref: 'ProductVariantEntity',
   })
-  variants: ProductVariantEntity[];
+  variantIds?: string[];
 
   @Prop({
-    type: Types.ObjectId,
-    ref: 'UserEntity',
     required: true,
+    length: ID_LENGTH,
+    ref: 'UserEntity',
   })
-  createdBy: UserEntity;
+  createdById: string;
 
   @Prop({
-    type: Types.ObjectId,
-    ref: 'UserEntity',
     required: true,
+    length: ID_LENGTH,
+    ref: 'UserEntity',
   })
-  updatedBy: UserEntity;
+  updatedById: string;
 }
 
-export type ProductDocument = HydratedDocument<ProductEntity>;
+assertSameType<Product, ProductEntity>();
+assertSameType<ProductEntity, Product>();
 
 export const ProductSchema = SchemaFactory.createForClass(ProductEntity);
+ProductSchema.virtual('category', {
+  ref: 'CategoryEntity',
+  localField: 'categoryId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+ProductSchema.virtual('images', {
+  ref: 'ImageEntity',
+  localField: 'imageIds',
+  foreignField: '_id',
+});
+
+ProductSchema.virtual('variants', {
+  ref: 'ProductVariantEntity',
+  localField: 'variantIds',
+  foreignField: '_id',
+});
+
+ProductSchema.virtual('createdBy', {
+  ref: 'UserEntity',
+  localField: 'createdById',
+  foreignField: '_id',
+  justOne: true,
+});
+
+ProductSchema.virtual('updatedBy', {
+  ref: 'UserEntity',
+  localField: 'updatedById',
+  foreignField: '_id',
+  justOne: true,
+});
+
+export type ProductDocument = HydratedDocument<ProductEntity> & {
+  variants?: ProductVariantDocument[];
+  images?: ImageDocument[];
+  category?: CategoryDocument;
+  createdBy?: UserDocument;
+  updatedBy?: UserDocument;
+};

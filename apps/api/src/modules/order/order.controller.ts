@@ -92,7 +92,7 @@ export class OrderController {
         url: '/orders/scan/:barcode',
         message: 'Get order detail by barcode',
         user,
-        param: {
+        params: {
           barcode,
         },
       }),
@@ -144,7 +144,7 @@ export class OrderController {
         url: '/orders/:id/update-note',
         message: 'Update note',
         user,
-        param: {
+        params: {
           id,
         },
         body: updateNoteDto,
@@ -173,7 +173,7 @@ export class OrderController {
         url: '/orders/:id/update-system-note',
         message: 'Update note',
         user,
-        param: {
+        params: {
           id,
         },
         body: updateNoteDto,
@@ -204,7 +204,7 @@ export class OrderController {
         url: '/orders/:id/status',
         message: 'Update status',
         user,
-        param: {
+        params: {
           id,
         },
         body: status,
@@ -237,7 +237,7 @@ export class OrderController {
         url: '/orders/:id',
         message: 'Get order detail',
         user,
-        param: {
+        params: {
           id,
         },
       }),
@@ -263,7 +263,7 @@ export class OrderController {
   //       url: '/orders/create-shipment/:id',
   //       message: 'Create shipment order',
   //       user,
-  //       param: {
+  //       params: {
   //         id,
   //       },
   //     }),

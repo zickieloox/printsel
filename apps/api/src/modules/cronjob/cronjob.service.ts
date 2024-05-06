@@ -35,7 +35,7 @@ export class CronjobService {
   }
 
   async deleteCronjob(id: string): Promise<boolean> {
-    return await this.cronjobRepository.softDeleteById(id);
+    return await this.cronjobRepository.softDelete({ _id: id });
   }
 
   findAllActiveCronjobs(): Promise<CronjobEntity[]> {

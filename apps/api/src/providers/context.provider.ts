@@ -1,7 +1,7 @@
 import { requestContext } from '@fastify/request-context';
 import type { LanguageCode } from 'core';
 
-import type { UserEntity } from '../modules/user/user.entity';
+import type { UserDocument, UserEntity } from '../modules/user/user.entity';
 
 export class ContextProvider {
   private static readonly nameSpace = 'request';

@@ -1,9 +1,9 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ResponseDto } from 'core';
+import type { GetProductVariantsByCodesResDto } from 'shared';
+import { GetProductVariantsByCodesDto, GetProductVariantsResDto, ProductVariantResDto } from 'shared';
 import { Logger } from 'winston';
 
-import { ProductVariantCodesDto } from './dtos/product-variant-codes.dto';
 import { ProductVariantService } from './product-variant.service';
 
 @Controller('product-variants')
@@ -14,25 +14,25 @@ export class ProductVariantController {
     private readonly productVariantService: ProductVariantService,
   ) {}
 
-  @Get('/all')
+  @Get('/')
   @ApiOperation({
-    summary: 'Get all product variants',
+    summary: 'Get product variants',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: GetProductVariantsResDto,
   })
-  async getAllProductVariants(): Promise<ResponseDto> {
+  async getProductVariants(): Promise<GetProductVariantsResDto> {
     this.logger.info({
       message: JSON.stringify({
-        action: 'getAllProductVariants',
+        action: 'getProductVariants',
         method: 'GET',
         url: '/product-variants/all',
-        message: 'Get all product variants',
+        message: 'Get product variants',
       }),
     });
 
-    return new ResponseDto(await this.productVariantService.getAllProductVariants());
+    return { success: true, ...(await this.productVariantService.getProductVariants()) };
   }
 
   @Post('bulk')
@@ -41,45 +41,48 @@ export class ProductVariantController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: GetProductVariantsResDto,
   })
-  async getProductVariantsByCodes(@Body() productVariantIdsDto: ProductVariantCodesDto): Promise<ResponseDto> {
+  async getProductVariantsByCodes(
+    @Body() getProductVariantsByCodesDto: GetProductVariantsByCodesDto,
+  ): Promise<GetProductVariantsByCodesResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'getProductVariantsByCodes',
         method: 'POST',
         url: '/product-variants/bulk',
         message: 'Validate product variants by code',
-        body: productVariantIdsDto,
+        body: getProductVariantsByCodesDto,
       }),
     });
 
-    const nonExistingIds = await this.productVariantService.getProductVariantsByCodes(productVariantIdsDto);
-
-    return new ResponseDto(nonExistingIds);
+    return {
+      success: true,
+      ...(await this.productVariantService.getProductVariantsByCodes(getProductVariantsByCodesDto)),
+    };
   }
 
-  @Get(':productVariantId')
+  @Get(':variantId')
   @ApiOperation({
     summary: 'Get product variant',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: ProductVariantResDto,
   })
-  async getProductVariant(@Param('productVariantId') productVariantId: string): Promise<ResponseDto> {
+  async getProductVariant(@Param('variantId') variantId: string): Promise<ProductVariantResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'getProductVariant',
         method: 'GET',
-        url: `/product-variants/${productVariantId}`,
+        url: `/product-variants/${variantId}`,
         message: 'Get product variant',
-        param: {
-          productVariantId,
+        params: {
+          variantId,
         },
       }),
     });
 
-    return new ResponseDto(await this.productVariantService.getProductVariant(productVariantId));
+    return { success: true, data: await this.productVariantService.getProductVariant(variantId) };
   }
 }

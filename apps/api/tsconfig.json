@@ -8,6 +8,7 @@
     "sourceRoot": "./src",
     "paths": {
       "@/*": ["./src/*"],
+      "@shared/*": ["../../packages/shared/*"]
     },
     "declaration": true,
     "declarationMap": true,
@@ -15,6 +16,6 @@
   "ts-node": {
     "require": ["tsconfig-paths/register"],
   },
-  "include": ["src/**/*.ts", "vite.config.ts"],
+  "include": ["src/**/*.ts", "vite.config.ts", "../../packages/shared/dtos/user.dto.ts", "../../packages/shared/enums/role-type.ts"],
   "exclude": ["node_modules", "src/metadata.ts", "dist"],
 }

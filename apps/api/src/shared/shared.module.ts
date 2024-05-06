@@ -1,13 +1,24 @@
 import type { Provider } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
-import { AwsS3Service, TelegramService } from 'core';
+import { AwsS3Service, BackblazeService, TelegramService } from 'core';
 
 import { ApiConfigService } from './services';
 import { SharedController } from './shared.controller';
 
 const providers: Provider[] = [
   ApiConfigService,
+  {
+    provide: BackblazeService,
+    useFactory: (configService: ApiConfigService) =>
+      new BackblazeService({
+        accountId: configService.awsS3Config.accessKey,
+        applicationKey: configService.awsS3Config.secretKey,
+        bucketName: configService.awsS3Config.imagesBucketName.split('/')[0],
+        apiUrl: configService.awsS3Config.endpoint,
+      }),
+    inject: [ApiConfigService],
+  },
   {
     provide: TelegramService,
     useFactory: (configService: ApiConfigService) =>
@@ -23,7 +34,7 @@ const providers: Provider[] = [
         endpoint: configService.awsS3Config.endpoint,
         bucketApiVersion: configService.awsS3Config.bucketApiVersion,
         bucketRegion: configService.awsS3Config.bucketRegion.split('/')[0],
-        bucketName: configService.awsS3Config.bucketName,
+        bucketName: configService.awsS3Config.imagesBucketName,
         accessKey: configService.awsS3Config.accessKey,
         secretKey: configService.awsS3Config.secretKey,
       }),

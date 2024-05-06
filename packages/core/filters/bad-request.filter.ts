@@ -57,7 +57,6 @@ export class UnprocessableEntityFilter implements ExceptionFilter<UnprocessableE
         message = target + translation;
 
         await response.status(statusCode).send({
-          statusCode,
           success: false,
           message,
           stackTrace,

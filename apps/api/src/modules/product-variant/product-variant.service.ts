@@ -1,25 +1,25 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ENUM_PAGINATION_ORDER_DIRECTION_TYPE } from 'shared';
+import type { GetProductVariantsByCodesDto, GetProductVariantsByCodesResDto, GetProductVariantsResDto } from 'shared';
+import { OrderDirection } from 'shared';
 
-import type { ProductVariantCodesDto } from './dtos/product-variant-codes.dto';
-import type { ProductVariantEntity } from './product-variant.entity';
+import type { ProductVariantDocument } from './product-variant.entity';
 import { ProductVariantRepository } from './product-variant.repository';
 
 @Injectable()
 export class ProductVariantService {
   constructor(private productVariantRepository: ProductVariantRepository) {}
 
-  async getAllProductVariants(): Promise<ProductVariantEntity[]> {
-    return await this.productVariantRepository.findAll(
+  async getProductVariants(): Promise<GetProductVariantsResDto> {
+    return await this.productVariantRepository.findAllAndCount(
       {},
       {
-        sort: { createdAt: ENUM_PAGINATION_ORDER_DIRECTION_TYPE.DESC },
-        select: ['_id', 'name', 'color', 'style', 'size', 'sku', 'code', 'price'],
+        sort: { createdAt: OrderDirection.DESC },
+        select: ['title', 'productId', 'code', 'sku', 'option1', 'option2', 'option3', 'option4', 'price'],
       },
     );
   }
 
-  async getProductVariant(variantId: string): Promise<ProductVariantEntity> {
+  async getProductVariant(variantId: string): Promise<ProductVariantDocument> {
     const productVariant = await this.productVariantRepository.findOneById(variantId);
 
     if (!productVariant) {
@@ -30,27 +30,21 @@ export class ProductVariantService {
   }
 
   async getProductVariantsByCodes(
-    productVariantIds: ProductVariantCodesDto,
-  ): Promise<Array<{ id: string; data?: unknown }>> {
-    const { codes } = productVariantIds;
-    const uniqueProductVariantCodes = [...new Set(codes)];
+    getProductVariantsByCodesDto: GetProductVariantsByCodesDto,
+  ): Promise<GetProductVariantsByCodesResDto> {
+    const { codes } = getProductVariantsByCodesDto;
+    const uniqueCodes = [...new Set(codes as string[])];
 
     const existingProductVariants = await this.productVariantRepository.findAll(
-      { code: { $in: uniqueProductVariantCodes } },
-      { select: ['_id', 'name', 'color', 'style', 'size', 'code'] },
+      { code: { $in: uniqueCodes } },
+      { select: ['title', 'productId', 'code', 'sku', 'option1', 'option2', 'option3', 'option4', 'price'] },
     );
 
-    const existingIds = new Set(existingProductVariants.map((variant) => variant.code));
-    const productVariantsWithId = existingProductVariants.map((item) => {
-      const newItem = {
-        ...item,
-        _id: item.code,
-      };
+    const existingCodes = new Set(existingProductVariants.map((variant) => variant.code));
+    const nonExistingCodes = uniqueCodes.filter((id) => !existingCodes.has(id));
 
-      return { id: item.code, data: newItem };
-    });
-    const noneExistingData = uniqueProductVariantCodes.filter((id) => !existingIds.has(id)).map((id) => ({ id }));
-
-    return [...productVariantsWithId, ...noneExistingData];
+    return {
+      data: { existing: existingProductVariants, nonExisting: nonExistingCodes },
+    };
   }
 }

@@ -1,6 +1,6 @@
 export enum ImportStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  ERROR = 'error',
-  DONE = 'done',
+  Pending = 'pending',
+  Processing = 'processing',
+  Error = 'error',
+  Done = 'done',
 }

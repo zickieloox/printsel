@@ -1,11 +1,12 @@
+import type { ZodDtoStatic } from '@anatine/zod-nestjs/src/lib/create-zod-dto';
 import { default as multipart } from '@fastify/multipart';
-import { HttpStatus, UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
-import { NestFactory, Reflector } from '@nestjs/core';
+import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import compression from 'compression';
-import { CustomExceptionFilter, UnprocessableEntityFilter } from 'core';
+import { CustomExceptionFilter } from 'core';
 import helmet from 'helmet';
-import mongoose from 'mongoose';
 import morgan from 'morgan';
 import { I18nService } from 'nestjs-i18n';
 
@@ -16,11 +17,11 @@ import { SharedModule } from './shared/shared.module';
 
 export async function bootstrap(): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), { cors: true });
-  const ObjectId = mongoose.Types.ObjectId;
+  // const ObjectId = mongoose.Types.ObjectId;
 
-  ObjectId.prototype.valueOf = function () {
-    return this.toString();
-  };
+  // ObjectId.prototype.valueOf = function () {
+  //   return this.toString();
+  // };
 
   const configService = app.select(SharedModule).get(ApiConfigService);
 
@@ -43,21 +44,39 @@ export async function bootstrap(): Promise<NestFastifyApplication> {
   app.enableVersioning();
   app.setGlobalPrefix('api/v1');
 
-  const reflector = app.get(Reflector);
+  // const reflector = app.get(Reflector);
 
   app.useGlobalFilters(
     new CustomExceptionFilter(configService.isDevelopment, app.select(SharedModule).get(I18nService)),
-    new UnprocessableEntityFilter(reflector, configService.isDevelopment, app.select(SharedModule).get(I18nService)),
+    // new UnprocessableEntityFilter(reflector, configService.isDevelopment, app.select(SharedModule).get(I18nService)),
   );
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-      transform: true,
-      dismissDefaultMessages: true,
-      exceptionFactory: (errors) => new UnprocessableEntityException(errors),
-    }),
-  );
+
+  @Injectable()
+  class ZodValidationPipe implements PipeTransform {
+    public transform(value: unknown, metadata: ArgumentMetadata): unknown {
+      const zodSchema = (metadata.metatype as ZodDtoStatic).zodSchema;
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (zodSchema) {
+        const parseResult = zodSchema.safeParse(value);
+
+        if (!parseResult.success) {
+          const { error } = parseResult;
+          const message = error.errors.map((error2) => `${error2.path.join('.')}: ${error.message}`);
+
+          console.log('🚀 ~ ZodValidationPipe ~ transform ~ message:', message);
+
+          throw new UnprocessableEntityException(message);
+        }
+
+        return parseResult.data;
+      }
+
+      return value;
+    }
+  }
+
+  app.useGlobalPipes(new ZodValidationPipe());
 
   if (configService.documentationEnabled) {
     setupSwagger(app);

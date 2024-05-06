@@ -3,7 +3,7 @@ import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
 import { type HydratedDocument, Types } from 'mongoose';
 import { ImportStatus } from 'shared';
 
-import { FileType } from '@/constants';
+import { ImageType } from '@/constants';
 import { UserEntity } from '@/modules/user/user.entity';
 
 @DatabaseEntity({ collection: 'imports' })
@@ -17,8 +17,8 @@ export class ImportEntity extends DatabaseEntityAbstract {
   @Prop({ type: String, default: ImportStatus.PENDING })
   status: ImportStatus;
 
-  @Prop({ required: true, type: String, enum: FileType })
-  type: FileType;
+  @Prop({ required: true, type: String, enum: ImageType })
+  type: ImageType;
 
   @Prop({ required: true, ref: 'UserEntity', type: Types.ObjectId })
   owner: UserEntity;

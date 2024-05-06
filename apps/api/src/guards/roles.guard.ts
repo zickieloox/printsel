@@ -1,25 +1,33 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import * as _ from 'lodash';
+import _ from 'lodash';
+import { RoleType } from 'shared';
 
-import type { UserEntity } from '../modules/user/user.entity';
+import type { UserDocument } from '../modules/user/user.entity';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const roles = this.reflector.get<string[]>('roles', context.getHandler());
+    const roles = this.reflector.get<RoleType[]>('roles', context.getHandler());
 
     if (_.isEmpty(roles)) {
       return true;
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = <UserEntity>request.user;
+    const user = <UserDocument>request.user;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    if (user.role?.name === RoleType.SuperAdmin) {
+      return true;
+    }
+
+    if (!user.role) {
+      return false;
+    }
+
     return roles.includes(user.role.name);
   }
 }

@@ -6,12 +6,12 @@ import { ArtworkRepository } from '@/modules/artwork/artwork.repository';
 import { MockupEntity, MockupSchema } from '@/modules/mockup/mockup.entity';
 import { MockupRepository } from '@/modules/mockup/mockup.repository';
 import { ProductEntity, ProductSchema } from '@/modules/product/product.entity';
-import { FileEntity, FileSchema } from '@/modules/upload/file.entity';
-import { FileRepository } from '@/modules/upload/file.repository';
+import { UniqueImageEntity, UniqueImageSchema } from '@/modules/upload/unique-image.entity';
+import { UniqueImageRepository } from '@/modules/upload/unique-image.repository';
 import { SharedModule } from '@/shared/shared.module';
 
-import { NotificationEntity, NotificationSchema } from '../notification/notification.entity';
-import { NotificationRepository } from '../notification/notification.repository';
+// import { NotificationEntity, NotificationSchema } from '../notification/notification.entity';
+// import { NotificationRepository } from '../notification/notification.repository';
 import { OrderEntity, OrderSchema } from '../order/order.entity';
 import { OrderRepository } from '../order/order.repository';
 import { UserEntity, UserSchema } from '../user/user.entity';
@@ -21,8 +21,9 @@ import { CronjobEntity, CronjobSchema } from './cronjob.entity';
 import { CronjobRepository } from './cronjob.repository';
 import { CronjobService } from './cronjob.service';
 import { CronjobRunnerService } from './cronjob-runner.service';
-import { DeleteImageJob, TelegramNotificationJob, TestJob } from './jobs';
-import { DeleteNotificationJob } from './jobs/delete-notification';
+import { TestJob } from './jobs';
+// import { DeleteImageJob, TelegramNotificationJob, TestJob } from './jobs';
+// import { DeleteNotificationJob } from './jobs/delete-notification';
 
 @Global()
 @Module({
@@ -37,8 +38,8 @@ import { DeleteNotificationJob } from './jobs/delete-notification';
     ]),
     MongooseModule.forFeature([
       {
-        name: FileEntity.name,
-        schema: FileSchema,
+        name: UniqueImageEntity.name,
+        schema: UniqueImageSchema,
       },
     ]),
     MongooseModule.forFeature([
@@ -65,25 +66,25 @@ import { DeleteNotificationJob } from './jobs/delete-notification';
         schema: OrderSchema,
       },
     ]),
-    MongooseModule.forFeature([
-      {
-        name: NotificationEntity.name,
-        schema: NotificationSchema,
-      },
-    ]),
+    // MongooseModule.forFeature([
+    //   {
+    //     name: NotificationEntity.name,
+    //     schema: NotificationSchema,
+    //   },
+    // ]),
   ],
   controllers: [CronjobController],
   exports: [CronjobService],
   providers: [
     TestJob,
-    TelegramNotificationJob,
-    DeleteImageJob,
-    DeleteNotificationJob,
+    // TelegramNotificationJob,
+    // DeleteImageJob,
+    // DeleteNotificationJob,
     ArtworkRepository,
     CronjobRepository,
-    FileRepository,
+    UniqueImageRepository,
     MockupRepository,
-    NotificationRepository,
+    // NotificationRepository,
     OrderRepository,
     UserRepository,
     CronjobService,

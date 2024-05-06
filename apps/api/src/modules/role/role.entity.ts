@@ -1,11 +1,10 @@
 import { Prop, SchemaFactory } from '@nestjs/mongoose';
-import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
+import { assertSameType, DatabaseEntity, DatabaseEntityAbstract } from 'core';
 import type { HydratedDocument } from 'mongoose';
-import mongoose from 'mongoose';
-import { Status } from 'shared';
+import type { Role } from 'shared';
+import { ID_LENGTH, RoleType, Status } from 'shared';
 
-import { RoleType } from '@/constants';
-import type { PermissionEntity } from '@/modules/permission/permission.entity';
+import type { PermissionDocument } from '../permission/permission.entity';
 
 @DatabaseEntity({ collection: 'roles' })
 export class RoleEntity extends DatabaseEntityAbstract {
@@ -13,29 +12,24 @@ export class RoleEntity extends DatabaseEntityAbstract {
     type: String,
     enum: RoleType,
     required: true,
-    trim: true,
-    maxlength: 50,
     unique: true,
   })
   name: RoleType;
 
-  @Prop({
-    trim: true,
-    default: '',
-    maxlength: 200,
-  })
-  description: string;
+  @Prop()
+  description?: string;
 
   @Prop({
     type: [
       {
-        type: mongoose.Types.ObjectId,
+        type: String,
+        length: ID_LENGTH,
         ref: 'PermissionEntity',
       },
     ],
     default: [],
   })
-  permissions: PermissionEntity[];
+  permissionIds: string[];
 
   @Prop({
     type: String,
@@ -43,8 +37,19 @@ export class RoleEntity extends DatabaseEntityAbstract {
     default: Status.Active,
   })
   status: Status;
+
+  //
+  permissions?: PermissionDocument[];
 }
 
-export type RoleDocument = HydratedDocument<RoleEntity>;
+assertSameType<Role, RoleEntity>();
+assertSameType<RoleEntity, Role>();
 
 export const RoleSchema = SchemaFactory.createForClass(RoleEntity);
+RoleSchema.virtual('permissions', {
+  ref: 'PermissionEntity',
+  localField: 'permissionIds',
+  foreignField: '_id',
+});
+
+export type RoleDocument = HydratedDocument<RoleEntity>;

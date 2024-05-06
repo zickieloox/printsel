@@ -1,24 +1,20 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  NotFoundException,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthUser, ResponseDto } from 'core';
+import { AuthUser } from 'core';
+import {
+  CreateRoleDto,
+  CreateRoleResDto,
+  GetRolesDto,
+  GetRolesResDto,
+  RoleType,
+  UpdateRoleDto,
+  UpdateRoleResDto,
+} from 'shared';
 import { Logger } from 'winston';
 
-import { RoleType } from '@/constants';
 import { Auth } from '@/decorators';
 
-import { UserEntity } from '../user/user.entity';
-import { CreateRoleDto, UpdateRoleDto } from './dtos';
+import { UserDocument } from '../user/user.entity';
 import { RoleService } from './role.service';
 
 @Controller('roles')
@@ -36,56 +32,63 @@ export class RoleController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: GetRolesResDto,
   })
-  async getRoles(@AuthUser() user: UserDocument): Promise<ResponseDto> {
+  async getRoles(@Query() getRolesDto: GetRolesDto, @AuthUser() user: UserDocument): Promise<GetRolesResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'getRoles',
         method: 'GET',
         url: '/roles',
         message: 'Get roles',
-        user,
+        userId: user._id,
       }),
     });
 
-    return new ResponseDto(await this.roleService.getRoles());
+    return {
+      success: true,
+      ...(await this.roleService.getRoles(getRolesDto)),
+    };
   }
 
   @Post()
   @Auth([RoleType.Admin])
   @ApiOperation({
-    summary: 'Create new role',
+    summary: 'Create role',
   })
   @HttpCode(HttpStatus.OK)
-  async createRole(@Body() createRoleDto: CreateRoleDto): Promise<ResponseDto> {
+  @ApiOkResponse({
+    type: CreateRoleResDto,
+  })
+  async createRole(@Body() createRoleDto: CreateRoleDto, @AuthUser() user: UserDocument): Promise<CreateRoleResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'createRole',
         method: 'POST',
         url: '/roles',
-        message: 'Create new role',
+        message: 'Create role',
         body: createRoleDto,
+        userId: user._id,
       }),
     });
 
-    return new ResponseDto(await this.roleService.createRole(createRoleDto));
+    return { success: true, data: await this.roleService.createRole(createRoleDto) };
   }
 
-  @Patch(':id')
+  @Patch(':roleId')
   @Auth([RoleType.Admin])
   @ApiOperation({
     summary: 'Update role',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: UpdateRoleResDto,
   })
   async updateRole(
-    @Param('id') roleId: string,
+    @Param('roleId') roleId: string,
     @Body() updateRoleDto: UpdateRoleDto,
     @AuthUser() user: UserDocument,
-  ): Promise<ResponseDto> {
+  ): Promise<UpdateRoleResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'updateRole',
@@ -93,18 +96,13 @@ export class RoleController {
         url: `/roles/${roleId}`,
         message: 'Update role',
         body: updateRoleDto,
-        user,
         params: {
           roleId,
         },
+        userId: user._id,
       }),
     });
-    const role = await this.roleService.updateRole(roleId, updateRoleDto);
 
-    if (!role) {
-      throw new NotFoundException('Role not found');
-    }
-
-    return new ResponseDto(role);
+    return { success: true, data: await this.roleService.updateRole(roleId, updateRoleDto) };
   }
 }

@@ -7,18 +7,16 @@ import { PageDto } from 'core';
 import type { FilterQuery } from 'mongoose';
 import mongoose, { Model, Types } from 'mongoose';
 import {
-  ENUM_PAGINATION_ORDER_DIRECTION_TYPE,
-  Order,
+  OrderDirection,
   OrderItemStatus,
   OrderStatus,
   OrderType,
   ShippingMethod,
   ShippingStatus,
-  Status,
   toCamelCase,
 } from 'shared';
 
-import { FileType, RoleType } from '@/constants';
+import { RoleType } from '@/constants';
 import { CounterService } from '@/modules/counter/counter.service';
 import { OrderItemRepository } from '@/modules/order-item/order-item.repository';
 import { ProductRepository } from '@/modules/product/product.repository';
@@ -27,22 +25,17 @@ import { UploadService } from '@/modules/upload/upload.service';
 import type { UserEntity } from '@/modules/user/user.entity';
 import { ApiConfigService } from '@/shared/services';
 
-import type { ProductEntity } from '../product/product.entity';
-import type { ProductVariantEntity } from '../product-variant/product-variant.entity';
+import type { OrderItemEntity } from '../order-item/order-item.entity';
+import type { CreateOrderDto } from './dtos/create-order.dto';
 import { type GetOrdersDto, type GetStatisticDto } from './dtos/get-order.dto';
-import type { ImportOrderItemDto, ImportOrdersDto } from './dtos/import-orders.dto';
-import { OrdersImportZod } from './dtos/orders-import.zod';
 import type { SyncOrderToFactoryDto } from './dtos/sync-order-to-factory.dto';
 import type { UpdateArtworkError } from './dtos/update-artwork-error.dto';
 import type { UpdateNoteDto } from './dtos/update-note.dto';
 import type { UpdateOrderFromFactoryDto } from './dtos/update-order-from-factory';
 import type { IGetOrderDetailByBarcodeResponse } from './interfaces/get-order-by-barcode';
-import type { ICreateOrderShipment } from './interfaces/order-create-shipment.interface';
 import type { PayOrdersDto } from './interfaces/pay-orders-dto';
 import { OrderEntity } from './order.entity';
 import { OrderRepository } from './order.repository';
-import { OrderItemEntity } from '../order-item/order-item.entity';
-import { CreateOrderDto } from './dtos/create-order.dto';
 
 @Injectable()
 export class OrderService {
@@ -181,7 +174,7 @@ export class OrderService {
           limit,
         },
         sort: {
-          createdAt: ENUM_PAGINATION_ORDER_DIRECTION_TYPE.DESC,
+          createdAt: OrderDirection.DESC,
         },
       },
     );
@@ -195,7 +188,7 @@ export class OrderService {
           },
         },
         // $sort: {
-        //   createdAt: ENUM_PAGINATION_ORDER_DIRECTION_TYPE.DESC,
+        //   createdAt: OrderDirection.DESC,
         // },
         // $skip: skip,
         // $limit: limit,
@@ -459,7 +452,6 @@ export class OrderService {
 
     const result = await this.orderRepository.raw(countPipeline);
 
-    // @ts-ignore
     const totalOrders = result[0].totalOrders;
 
     const mainPipeline = [
@@ -470,8 +462,7 @@ export class OrderService {
       },
       {
         $sort: {
-          // @ts-ignore
-          [sort]: order === Order.ASC ? 1 : -1,
+          [sort]: order === OrderDirection.ASC ? 1 : -1,
         },
       },
       {
@@ -1086,22 +1077,22 @@ export class OrderService {
   //     // eslint-disable-next-line no-await-in-loop
   //     if (order.frontArtworkUrl) {
   //       // eslint-disable-next-line no-await-in-loop
-  //       frontArtwork = await this.downloadAndUploadImage(order.frontArtworkUrl, FileType.ARTWORK);
+  //       frontArtwork = await this.downloadAndUploadImage(order.frontArtworkUrl, ImageType.ARTWORK);
   //     }
 
   //     if (order.backArtworkUrl) {
   //       // eslint-disable-next-line no-await-in-loop
-  //       backArtwork = await this.downloadAndUploadImage(order.backArtworkUrl, FileType.ARTWORK);
+  //       backArtwork = await this.downloadAndUploadImage(order.backArtworkUrl, ImageType.ARTWORK);
   //     }
 
   //     if (order.mockUpUrl1) {
   //       // eslint-disable-next-line no-await-in-loop
-  //       mockup1 = await this.downloadAndUploadImage(order.mockUpUrl1, FileType.MOCKUP);
+  //       mockup1 = await this.downloadAndUploadImage(order.mockUpUrl1, ImageType.MOCKUP);
   //     }
 
   //     if (order.mockUpUrl2) {
   //       // eslint-disable-next-line no-await-in-loop
-  //       mockup2 = await this.downloadAndUploadImage(order.mockUpUrl2, FileType.MOCKUP);
+  //       mockup2 = await this.downloadAndUploadImage(order.mockUpUrl2, ImageType.MOCKUP);
   //     }
 
   //     const existedFormattedOrders = formattedOrders.find((o) => o.externalId === order.externalId);

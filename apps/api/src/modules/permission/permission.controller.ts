@@ -1,24 +1,19 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  NotFoundException,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthUser, ResponseDto } from 'core';
+import { AuthUser } from 'core';
+import {
+  CreatePermissionDto,
+  CreatePermissionResDto,
+  GetPermissionsResDto,
+  RoleType,
+  UpdatePermissionDto,
+  UpdatePermissionResDto,
+} from 'shared';
 import { Logger } from 'winston';
 
-import { RoleType } from '@/constants';
 import { Auth } from '@/decorators';
 
-import { UserEntity } from '../user/user.entity';
-import { CreatePermissionDto, UpdatePermissionDto } from './dtos';
+import { UserDocument } from '../user/user.entity';
 import { PermissionService } from './permission.service';
 
 @Controller('permissions')
@@ -36,20 +31,20 @@ export class PermissionController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: GetPermissionsResDto,
   })
-  async getPermissions(@AuthUser() user: UserDocument): Promise<ResponseDto> {
+  async getPermissions(@AuthUser() user: UserDocument): Promise<GetPermissionsResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'getPermissions',
         method: 'GET',
         url: '/permissions',
         message: 'Get permissions',
-        user,
+        userId: user._id,
       }),
     });
 
-    return new ResponseDto(await this.permissionService.getAllPermissions());
+    return { success: true, data: await this.permissionService.getAllPermissions() };
   }
 
   @Post()
@@ -59,47 +54,50 @@ export class PermissionController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: CreatePermissionResDto,
   })
   async createPermission(
     @Body() createPermissionDto: CreatePermissionDto,
     @AuthUser() user: UserDocument,
-  ): Promise<ResponseDto> {
+  ): Promise<CreatePermissionResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'createPermission',
         method: 'POST',
         url: '/permissions',
         message: 'Create new permission',
-        user,
+        userId: user._id,
         body: createPermissionDto,
       }),
     });
 
-    return new ResponseDto(await this.permissionService.createPermission(createPermissionDto));
+    return {
+      success: true,
+      data: await this.permissionService.createPermission(createPermissionDto),
+    };
   }
 
-  @Patch(':id')
+  @Patch(':permId')
   @Auth([RoleType.Admin])
   @ApiOperation({
     summary: 'Update permission',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    type: ResponseDto,
+    type: UpdatePermissionResDto,
   })
   async updatePermission(
-    @Param('id') permissionId: string,
+    @Param('permId') permissionId: string,
     @Body() updatePermissionDto: UpdatePermissionDto,
     @AuthUser() user: UserDocument,
-  ): Promise<ResponseDto> {
+  ): Promise<UpdatePermissionResDto> {
     this.logger.info({
       message: JSON.stringify({
         action: 'updatePermission',
         method: 'PATCH',
-        url: `/permissions/${permissionId}`,
+        url: `/permissions`,
         message: 'Update permission',
-        user,
+        userId: user._id,
         body: updatePermissionDto,
         params: {
           permissionId,
@@ -109,10 +107,9 @@ export class PermissionController {
 
     const permission = await this.permissionService.updatePermission(permissionId, updatePermissionDto);
 
-    if (!permission) {
-      throw new NotFoundException('Permission not found');
-    }
-
-    return new ResponseDto(permission);
+    return {
+      success: true,
+      data: permission,
+    };
   }
 }

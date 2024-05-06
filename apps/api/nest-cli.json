@@ -10,7 +10,7 @@
     ],
     "assets": [
       {
-        "include": "i18n/**/*",
+        "include": "./i18n/**/*",
         "watchAssets": true
       },
       {

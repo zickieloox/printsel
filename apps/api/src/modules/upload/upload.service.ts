@@ -1,352 +1,517 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { UploadFileDto } from 'core';
-import { AwsS3Service } from 'core';
+import type { IFile, UploadedFileDto } from 'core';
+import { AwsS3Service, BackblazeService } from 'core';
 import crypto from 'crypto';
-import { Types } from 'mongoose';
-import type { IFile } from 'shared';
-import { FolderType } from 'shared';
+import type { ResImageDto } from 'shared';
+import { ImageType, myNanoid, Status } from 'shared';
 import sharp from 'sharp';
 
-import { FileType } from '@/constants';
-// import { ArtworkRepository } from '@/modules/artwork/artwork.repository';
-// import { MockupRepository } from '@/modules/mockup/mockup.repository';
-import type { UserEntity } from '@/modules/user/user.entity';
+import type { UserDocument } from '@/modules/user/user.entity';
 import { ApiConfigService } from '@/shared/services';
 
-// import type { ArtworkEntity } from '../artwork/artwork.entity';
-// import type { MockupEntity } from '../mockup/mockup.entity';
-import type { FileEntity } from './file.entity';
-import { FileRepository } from './file.repository';
+import type { ImageDocument, ImageEntity } from './image.entity';
+import { ImageRepository } from './image.repository';
+import { UniqueImageRepository } from './unique-image.repository';
+
+const MIN_DPI = 72;
+const ORIGINAL_SUFFIX = '-original';
+const THUMBNAIL_SUFFIX = '-thumb';
+const PREVIEW_SUFFIX = '-preview';
+
+const IMAGE_EXTENSIONS = /(jpg|jpeg|png|webp)$/i;
+
+type ImageConfig = Record<
+  ImageType,
+  {
+    folder: string;
+    allowedExtensions: RegExp;
+    minDimensions: number[];
+    maxDimensions: number[];
+    isSquare?: boolean;
+    hasThumbnail?: boolean;
+    noPreview?: boolean;
+    preview: { quality: number; width: number };
+    thumbnail: { quality: number; width: number };
+  }
+>;
+
+const IMAGE_CONFIG: ImageConfig = {
+  [ImageType.ProductImage]: {
+    folder: 'images',
+    allowedExtensions: /(jpg|jpeg|png)$/i,
+    isSquare: true,
+    minDimensions: [1000, 1000],
+    maxDimensions: [3000, 3000],
+    hasThumbnail: true,
+    preview: {
+      quality: 100,
+      width: 500,
+    },
+    thumbnail: {
+      quality: 90,
+      width: 200,
+    },
+  },
+  [ImageType.Mockup]: {
+    folder: 'u-images/mockup',
+    allowedExtensions: /(jpg|jpeg|png|webp)$/i,
+    minDimensions: [200, 200],
+    maxDimensions: [10_000, 10_000],
+    preview: {
+      quality: 90,
+      width: 500,
+    },
+    thumbnail: {
+      quality: 80,
+      width: 200,
+    },
+  },
+  [ImageType.Artwork]: {
+    folder: 'u-images/artwork',
+    allowedExtensions: /(png)$/i,
+    minDimensions: [1000, 1000],
+    maxDimensions: [10_000, 10_000],
+    hasThumbnail: true,
+    preview: {
+      quality: 90,
+      width: 500,
+    },
+    thumbnail: {
+      quality: 80,
+      width: 200,
+    },
+  },
+};
 
 @Injectable()
 export class UploadService {
   constructor(
-    private fileRepository: FileRepository,
-    // private artworkRepository: ArtworkRepository,
-    // private mockupRepository: MockupRepository,
+    private imageRepository: ImageRepository,
+    private uniqueImageRepository: UniqueImageRepository,
     private readonly awsS3Service: AwsS3Service,
     private readonly configService: ApiConfigService,
     private readonly backblazeService: BackblazeService,
   ) {}
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async uploadToS3(
-    file?: IFile,
-    type?: FileType,
-    shouldUploadThumbnail?: boolean,
-    user?: UserEntity,
-  ): Promise<{ _id: string; preview: string }> {
+  async uploadImage(type: ImageType, file: IFile, user: UserDocument): Promise<ResImageDto> {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!file) {
-      throw new BadRequestException('Upload file not found');
+      throw new BadRequestException('Upload image not found');
     }
 
-    if (!type) {
-      throw new BadRequestException('Type not found');
-    }
+    this.validateFileFormat(IMAGE_EXTENSIONS, file.originalname);
 
-    const { sharpImage, metadata, sha1Hash } = await this.processImage(file);
+    const { sharpImage, metadata, sha1 } = await this.processImage(file);
 
-    const allowedExtensionsMap = {
-      [FileType.MOCKUP]: /(jpg|jpeg|png|webp)$/i,
-      [FileType.ARTWORK]: /(png)$/i,
-      [FileType.PRODUCT_IMAGE]: /(jpg|jpeg|png|webp)$/i,
+    this.validateImageFormat(IMAGE_CONFIG[type].allowedExtensions, type, metadata.format);
+    this.validateImageDimensions(metadata.width!, metadata.height!, type);
+    this.validateDpi(type, metadata.density!);
+
+    file.mimetype = `image/${metadata.format}`;
+
+    // if (type === ImageType.Mockup || type === ImageType.Artwork) {
+    //   return await this.createArtworkOrMockup(type, file, metadata, sharpImage, sha1, user);
+    // }
+
+    const uploadedImage = await this.createImage(type, file, user, sharpImage, metadata, sha1);
+    uploadedImage.parseUrls();
+
+    return {
+      _id: uploadedImage._id,
+      name: uploadedImage.fileName,
+      url: uploadedImage.url,
+      previewUrl: uploadedImage.previewUrl,
+      thumbUrl: uploadedImage.thumbUrl,
     };
+  }
 
-    const allowedExtensions: RegExp = allowedExtensionsMap[type];
-    this.validateFileFormat(allowedExtensions, type, metadata.format);
-    this.validateImageDimensions(metadata.width || 0, metadata.height || 0, type);
-    this.validateDpi(type, metadata.density || 0);
+  // private async createArtworkOrMockup(
+  //   type: ImageType,
+  //   file: IFile,
+  //   user: UserDocument,
+  //   sharpImage: sharp.Sharp,
+  //   metadata: sharp.Metadata,
+  //   sha1: string,
+  // ): Promise<{ _id: string; previewUrl: string }> {
+  //   const existingFile = await this.imageRepository.findOne(
+  //     { sha1 },
+  //     { select: ['preview', 'previewFolder'], lean: false },
+  //   );
 
-    const existedFile = await this.fileRepository.findOne(
-      { sha1: sha1Hash },
-      { select: ['preview', 'previewFolder'], lean: false },
-    );
+  //   if (existingFile) {
+  //     existingFile.parseUrls();
 
-    if (existedFile) {
-      const previewLink = existedFile.parseImageUrls();
+  //     if (type === ImageType.Artwork) {
+  //       const existingArtwork = await this.artworkRepository.findOne({
+  //         fileName: file.originalname,
+  //         file: existingFile._id,
+  //         ownerId: user._id,
+  //       });
 
-      if (type === FileType.ARTWORK) {
-        const existedArtwork = await this.artworkRepository.findOne({
-          fileName: file.originalname,
-          file: existedFile._id,
-        });
+  //       if (existingArtwork) {
+  //         return { _id: existingArtwork._id, previewUrl };
+  //       }
 
-        if (existedArtwork) {
-          return { _id: existedArtwork._id.toString(), preview: previewLink };
-        }
+  //       const artwork = await this.createArtwork(file, existingFile, metadata, user);
 
-        const artwork = await this.createArtwork(file, existedFile, metadata, user);
+  //       return { _id: artwork._id, previewUrl };
+  //     }
 
-        return { _id: artwork._id.toString(), preview: previewLink };
-      }
+  //     if (type === ImageType.Mockup) {
+  //       const existedMockup = await this.mockupRepository.findOne({
+  //         fileName: file.originalname,
+  //         file: existingFile._id,
+  //       });
 
-      if (type === FileType.MOCKUP) {
-        const existedMockup = await this.mockupRepository.findOne({
-          fileName: file.originalname,
-          file: existedFile._id,
-        });
+  //       if (existedMockup) {
+  //         return { _id: existedMockup._id, preview: previewLink };
+  //       }
 
-        if (existedMockup) {
-          return { _id: existedMockup._id.toString(), preview: previewLink };
-        }
+  //       const mockup = await this.createMockup(file, existingFile, metadata, user);
 
-        const mockup = await this.createMockup(file, existedFile, metadata, user);
+  //       return { _id: mockup._id, preview: previewLink };
+  //     }
+  //   }
 
-        return { _id: mockup._id.toString(), preview: previewLink };
-      }
-    }
+  //   const { preview, width: previewWidth, quality: previewQuality } = await this.createPreview(file, sharpImage, type);
+  //   const [uploadedFile, uploadedPreview] = await Promise.all([
+  //     this.awsS3Service.uploadImage(file, this.configService.awsS3Config.imagesBucketName),
+  //     this.awsS3Service.uploadImage(preview, this.configService.awsS3Config.imagesBucketName, PREVIEW_SUFFIX),
+  //   ]);
 
-    const { preview, width: previewWidth, quality: previewQuality } = await this.createPreview(file, sharpImage, type);
-    const bucketName = this.getBucketName(type);
-    const [uploadedFile, uploadedPreview] = await Promise.all([
-      this.awsS3Service.uploadImage(file, bucketName),
-      this.awsS3Service.uploadImage(preview, bucketName, FolderType.PREVIEW),
+  //   const thumbnailObj = { width: 0, quality: 0 };
+  //   const uploadedThumbnail: UploadedFileDto;
+
+  //   // if (shouldUploadThumbnail) {
+  //   //   const {
+  //   //     thumbnail,
+  //   //     width: thumbnailWidth,
+  //   //     quality: thumbnailQuality,
+  //   //   } = await this.createThumbnail(file, sharpImage, type);
+  //   //   thumbnailObj.width = thumbnailWidth;
+  //   //   thumbnailObj.quality = thumbnailQuality;
+  //   //   uploadedThumbnail = await this.awsS3Service.uploadImage(thumbnail, bucketName);
+  //   // }
+
+  //   const { key, bucket, region, fileId } = uploadedFile;
+
+  //   const uploadFile = await this.imageRepository.create({
+  //     key,
+  //     objectId: fileId,
+  //     mimetype: file.mimetype,
+  //     fileSize: file.size,
+  //     bucket,
+  //     region,
+  //     previewObjectId: uploadedPreview.fileId,
+  //     sha1,
+  //     thumbKey: uploadedThumbnail.key || '',
+  //     thumbObjectId: uploadedThumbnail.fileId || '',
+  //     previewKey: uploadedPreview.key,
+  //     type,
+  //     dpi: metadata.density,
+  //     previewQuality,
+  //     previewWidth,
+  //     thumbWidth: thumbnailObj.width,
+  //     thumbQuality: thumbnailObj.quality,
+  //     ownerId: user._id,
+  //   });
+
+  //   uploadFile.parseUrls();
+
+  //   if (type === ImageType.Artwork) {
+  //     const artwork = await this.createArtwork(file, uploadFile, metadata, user);
+
+  //     return { _id: artwork._id, preview: uploadFile.previewUrl };
+  //   }
+
+  //   if (type === ImageType.Mockup) {
+  //     const mockup = await this.createMockup(file, uploadFile, metadata, user);
+
+  //     return { _id: mockup._id, preview: uploadFile.previewUrl };
+  //   }
+
+  //   return { _id: uploadFile._id, preview: uploadFile.previewUrl };
+  // }
+
+  private async createImage(
+    type: ImageType,
+    file: IFile,
+    user: UserDocument,
+    sharpImage: sharp.Sharp,
+    metadata: sharp.Metadata,
+    sha1: string,
+  ): Promise<ImageDocument> {
+    const {
+      preview,
+      width: previewWidth,
+      quality: previewQuality,
+      height: previewHeight,
+      fileSize: previewFileSize,
+    } = await this.createPreview(file, sharpImage, metadata, type);
+    console.log(file);
+
+    const folder = IMAGE_CONFIG[type].folder;
+    const imageId = myNanoid();
+
+    const result = await Promise.all([
+      this.awsS3Service.uploadImage(
+        imageId,
+        file,
+        this.configService.awsS3Config.imagesBucketName,
+        folder + ORIGINAL_SUFFIX,
+      ),
+      this.awsS3Service.uploadImage(
+        imageId,
+        preview,
+        this.configService.awsS3Config.imagesBucketName,
+        folder + PREVIEW_SUFFIX,
+      ),
     ]);
 
-    const thumbnailObj = { width: 0, quality: 0 };
-    let uploadedThumbnail: UploadFileDto = { key: '' };
+    const uploadedOriginal: UploadedFileDto = result[0];
+    const uploadedPreview: UploadedFileDto = result[1];
 
-    if (shouldUploadThumbnail) {
-      const {
-        thumbnail,
-        width: thumbnailWidth,
-        quality: thumbnailQuality,
-      } = await this.createThumbnail(file, sharpImage, type);
-      thumbnailObj.width = thumbnailWidth;
-      thumbnailObj.quality = thumbnailQuality;
-      uploadedThumbnail = await this.awsS3Service.uploadImage(thumbnail, bucketName);
-    }
-
-    const { key, bucket, region, folder, fileId } = uploadedFile;
-
-    const uploadFile = await this.fileRepository.create({
-      key,
-      fileId,
-      mimeType: file.mimetype,
-      fileSize: file.size,
-      bucket,
-      region,
-      folder,
-      previewFolder: uploadedPreview.folder,
-      previewFileId: uploadedPreview.fileId,
-      sha1: sha1Hash,
-      thumbnail: uploadedThumbnail.key || '',
-      thumbnailFileId: uploadedThumbnail.fileId || '',
-      preview: uploadedPreview.key,
+    const imageData: ImageEntity = {
       type,
-      dpi: metadata.density,
+      ownerId: user._id,
+      key: uploadedOriginal.key,
+      mimetype: file.mimetype,
+      region: uploadedOriginal.region,
+      objectId: uploadedOriginal.objectId,
+      bucket: uploadedOriginal.bucket,
+      fileSize: file.size,
+      sha1,
+      status: Status.Inactive,
+      fileName: file.originalname,
+
+      width: metadata.width!,
+      height: metadata.height!,
+      dpi: metadata.density!,
+      url: uploadedOriginal.url,
+
+      previewObjectId: uploadedPreview.objectId,
+      previewKey: uploadedPreview.key,
       previewQuality,
       previewWidth,
-      thumbnailWidth: thumbnailObj.width,
-      thumbnailQuality: thumbnailObj.quality,
-      owner: user?._id,
-    });
+      previewHeight,
+      previewUrl: uploadedPreview.url,
+      previewFileSize,
+    };
 
-    const previewLink = uploadFile.parseImageUrls();
+    if (IMAGE_CONFIG[type].hasThumbnail) {
+      const { thumbnail, width, height, quality, fileSize } = await this.createThumbnail(
+        file,
+        sharpImage,
+        metadata,
+        type,
+      );
+      imageData.thumbWidth = width;
+      imageData.thumbHeight = height;
+      imageData.thumbQuality = quality;
+      imageData.thumbFileSize = fileSize;
 
-    if (type === FileType.ARTWORK) {
-      const artwork = await this.createArtwork(file, uploadFile, metadata, user);
+      const uploadedThumbnail = await this.awsS3Service.uploadImage(
+        imageId,
+        thumbnail,
+        this.configService.awsS3Config.imagesBucketName,
+        folder + THUMBNAIL_SUFFIX,
+      );
 
-      return { _id: artwork._id.toString(), preview: previewLink };
+      imageData.thumbKey = uploadedThumbnail.key;
+      imageData.thumbUrl = uploadedThumbnail.url;
+      imageData.thumbObjectId = uploadedThumbnail.objectId;
     }
 
-    if (type === FileType.MOCKUP) {
-      const mockup = await this.createMockup(file, uploadFile, metadata, user);
-
-      return { _id: mockup._id.toString(), preview: previewLink };
-    }
-
-    return { _id: uploadFile._id.toString(), preview: previewLink };
+    return await this.imageRepository.create(imageData);
   }
 
-  async deleteUnusedFiles(): Promise<boolean> {
-    const bucketId = await this.backblazeService.getListBucket('zictok-dev');
-    const cloudItems = await this.backblazeService.getListFileName(bucketId);
-    const files = await this.fileRepository.findAll({}, { select: ['key', 'preview', 'thumbnail', 'folder'] });
+  // private async createArtwork(
+  //   file: IFile,
+  //   uploadFile: UniqueImageEntity,
+  //   metadata: sharp.Metadata,
+  //   user?: UserDocument,
+  // ): Promise<ArtworkDocument> {
+  //   return await this.artworkRepository.create({
+  //     fileName: file.originalname,
+  //     mimetype: file.mimetype,
+  //     size: file.size,
+  //     imageId: uploadFile._id,
+  //     width: metadata.width,
+  //     height: metadata.height,
+  //     ownerId: user?._id,
+  //   });
+  // }
 
-    const localItems: string[] = [];
+  // private async createMockup(
+  //   file: IFile,
+  //   uploadFile: UniqueImageEntity,
+  //   metadata: sharp.Metadata,
+  //   user?: UserDocument,
+  // ): Promise<MockupDocument> {
+  //   return await this.mockupRepository.create({
+  //     fileName: file.originalname,
+  //     mimetype: file.mimetype,
+  //     size: file.size,
+  //     imageId: uploadFile._id,
+  //     width: metadata.width,
+  //     height: metadata.height,
+  //     ownerId: user?._id,
+  //   });
+  // }
 
-    for (const file of files) {
-      const { key, preview, thumbnail, folder, previewFolder, thumbnailFolder } = file;
+  private validateFileFormat(allowedExtensions: RegExp, fileName: string): void {
+    const format = fileName.split('.').pop();
 
-      if (key && folder) {
-        localItems.push(`${folder}/${key}`);
-      }
-
-      if (preview && previewFolder) {
-        localItems.push(`${previewFolder}/${preview}`);
-      }
-
-      if (thumbnail && thumbnailFolder) {
-        localItems.push(`${thumbnailFolder}/${thumbnail}`);
-      }
+    if (!format || !allowedExtensions.test(format)) {
+      throw new BadRequestException('Unsupported file format');
     }
-
-    const cloudItemNames = cloudItems.map((item) => item.fileName);
-    const removeFiles = cloudItemNames.filter((item: string) => !localItems.includes(item));
-    const uniqueRemoveFiles = [...new Set(removeFiles)];
-
-    if (uniqueRemoveFiles.length === 0) {
-      throw new BadRequestException('No files to delete');
-    }
-
-    const deleteObject = cloudItems.filter((object) => uniqueRemoveFiles.includes(object.fileName));
-    await this.backblazeService.deleteFiles(deleteObject);
-
-    // eslint-disable-next-line no-console
-    console.log(deleteObject.map((d, index) => `${index + 1} • ${d.fileName}`).join('\n'));
-
-    return true;
-  }
-
-  private async createArtwork(
-    file: IFile,
-    uploadFile: FileEntity,
-    metadata: sharp.Metadata,
-    user?: UserEntity,
-  ): Promise<ArtworkEntity> {
-    return await this.artworkRepository.create({
-      fileName: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-      file: uploadFile,
-      width: metadata.width || 0,
-      height: metadata.height || 0,
-      owner: user?._id,
-    });
-  }
-
-  private async createMockup(
-    file: IFile,
-    uploadFile: FileEntity,
-    metadata: sharp.Metadata,
-    user?: UserEntity,
-  ): Promise<MockupEntity> {
-    return await this.mockupRepository.create({
-      fileName: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-      file: uploadFile,
-      width: metadata.width || 0,
-      height: metadata.height || 0,
-      owner: user?._id,
-    });
   }
 
   private async processImage(
     file: IFile,
-  ): Promise<{ sharpImage: sharp.Sharp; metadata: sharp.Metadata; sha1Hash: string }> {
+  ): Promise<{ sharpImage: sharp.Sharp; metadata: sharp.Metadata; sha1: string }> {
     let sharpImage: sharp.Sharp;
     let metadata: sharp.Metadata;
 
     const sha1 = crypto.createHash('sha1');
     sha1.update(file.buffer);
-    const sha1Hash = sha1.digest('hex');
 
     try {
       sharpImage = sharp(file.buffer);
       metadata = await sharpImage.metadata();
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log(`Get metadata from sharp image error: ${error}`);
-
-      throw new BadRequestException('Check image link');
+    } catch {
+      throw new BadRequestException('Cannot get image metadata');
     }
 
-    return { sharpImage, metadata, sha1Hash };
+    if (!metadata.width || !metadata.height) {
+      throw new BadRequestException('Cannot get image dimensions');
+    }
+
+    if (!metadata.density) {
+      throw new BadRequestException('Cannot get image dpi');
+    }
+
+    return { sharpImage, metadata, sha1: sha1.digest('hex') };
   }
 
-  private validateFileFormat(allowedExtensions: RegExp, type: FileType, format?: string): void {
+  private validateImageFormat(allowedExtensions: RegExp, type: ImageType, format?: string): void {
     const uploadErrorMessage = {
-      [FileType.MOCKUP]: 'Invalid image file',
-      [FileType.ARTWORK]: 'Artwork only support png file',
-      [FileType.PRODUCT_IMAGE]: 'Invalid image file',
+      [ImageType.Mockup]: 'Invalid mockup file',
+      [ImageType.Artwork]: 'Artwork only support png file',
+      [ImageType.ProductImage]: 'Invalid product image file',
     };
 
-    if (!allowedExtensions.test(format || '')) {
+    if (!format || !allowedExtensions.test(format)) {
       throw new BadRequestException(uploadErrorMessage[type]);
     }
   }
 
-  private validateImageDimensions(width: number, height: number, type: FileType): void {
-    if (type === FileType.PRODUCT_IMAGE) {
-      if (width !== height) {
-        throw new BadRequestException('Product image must be square');
-      }
+  private validateImageDimensions(width: number, height: number, type: ImageType): void {
+    if (IMAGE_CONFIG[type].isSquare && width !== height) {
+      throw new BadRequestException('Image must be square');
+    }
 
-      if (width >= 3000 || height >= 3000 || width < 1000 || height < 1000) {
-        throw new BadRequestException('Product image must be less than 3000x3000 and bigger than 1000x1000');
-      }
-    } else if (type === FileType.ARTWORK && (width >= 8000 || height >= 8000 || width <= 600 || height <= 600)) {
-      throw new BadRequestException('Artwork image must be be less than 8000x8000 and  bigger than 600x600');
-    } else if (type === FileType.MOCKUP && (width >= 2000 || height >= 2000 || width <= 300 || height <= 300)) {
-      throw new BadRequestException('Mockup image must be less than 3000x3000 and bigger than 300x300');
+    const minDimensions = IMAGE_CONFIG[type].minDimensions;
+    const maxDimensions = IMAGE_CONFIG[type].maxDimensions;
+
+    if (
+      width < minDimensions[0] ||
+      height < minDimensions[0] ||
+      width > maxDimensions[0] ||
+      height > maxDimensions[1]
+    ) {
+      throw new BadRequestException(
+        `Image must be bigger than ${minDimensions.join('x')} and less than ${maxDimensions}`,
+      );
     }
   }
 
-  private validateDpi(type: FileType, dpi: number): void {
-    if (type === FileType.ARTWORK && dpi < 72) {
-      throw new BadRequestException('Artwork image must be more than 72 DPI');
+  private validateDpi(type: ImageType, dpi: number): void {
+    if (type === ImageType.Artwork && dpi < MIN_DPI) {
+      throw new BadRequestException(`Artwork image must be more than ${MIN_DPI} DPI`);
     }
   }
 
   private async createPreview(
     file: IFile,
     sharpImage: sharp.Sharp,
-    type: FileType,
-  ): Promise<{ preview: IFile; quality: number; width: number }> {
-    const previewSizeMap = {
-      [FileType.MOCKUP]: { quality: 80, width: 600 },
-      [FileType.ARTWORK]: { quality: 90, width: 500 },
-      [FileType.PRODUCT_IMAGE]: { quality: 100, width: 600 },
-    };
+    metadata: sharp.Metadata,
+    type: ImageType,
+  ): Promise<{ preview: IFile; quality: number; width: number; height: number; fileSize: number }> {
+    const { quality, width } = IMAGE_CONFIG[type].preview;
 
-    const { quality, width } = previewSizeMap[type];
+    const preview: IFile = { ...file, fieldname: file.fieldname, mimetype: 'image/webp' };
+    const previewImage = await sharpImage.clone().resize(width).webp({ quality }).toBuffer({ resolveWithObject: true });
+    const height = previewImage.info.height;
+    // @ts-expect-error buffer
+    preview.buffer = previewImage.data.buffer;
 
-    const preview: IFile = { ...file, fieldname: `${file.fieldname}-preview`, mimetype: 'image/webp' };
-    preview.buffer = await sharpImage.clone().webp({ quality }).resize(width).toBuffer();
+    const fileSize = previewImage.data.byteLength;
 
-    return { preview, quality, width };
-  }
-
-  private getBucketName(type: FileType): string {
-    const bucketNameMap = {
-      [FileType.MOCKUP]: this.configService.awsS3Config.mockupsBucketName,
-      [FileType.ARTWORK]: this.configService.awsS3Config.artworksBucketName,
-      [FileType.PRODUCT_IMAGE]: this.configService.awsS3Config.bucketName,
-    };
-
-    return bucketNameMap[type];
+    return { preview, quality, width, height, fileSize };
   }
 
   private async createThumbnail(
     file: IFile,
     sharpImage: sharp.Sharp,
-    type: FileType,
-  ): Promise<{ thumbnail: IFile; quality: number; width: number }> {
-    const thumbnailSizeMap = {
-      [FileType.MOCKUP]: { quality: 80, width: 300 },
-      [FileType.ARTWORK]: { quality: 90, width: 300 },
-      [FileType.PRODUCT_IMAGE]: { quality: 100, width: 300 },
-    };
+    metadata: sharp.Metadata,
+    type: ImageType,
+  ): Promise<{ thumbnail: IFile; quality: number; width: number; height: number; fileSize: number }> {
+    const { quality, width } = IMAGE_CONFIG[type].thumbnail;
 
-    const { quality, width } = thumbnailSizeMap[type];
+    const thumbnail: IFile = { ...file, fieldname: file.fieldname, mimetype: 'image/webp' };
+    const thumbnailImage = await sharpImage
+      .clone()
+      .resize(width)
+      .webp({ quality })
+      .toBuffer({ resolveWithObject: true });
+    const height = thumbnailImage.info.height;
+    // @ts-expect-error buffer
+    thumbnail.buffer = thumbnailImage.data.buffer;
 
-    const thumbnail: IFile = { ...file, fieldname: `${file.fieldname}-thumbnail`, mimetype: 'image/jpeg' };
-    thumbnail.buffer = await sharpImage.clone().jpeg({ quality }).resize(width).toBuffer();
+    const fileSize = thumbnailImage.data.byteLength;
 
-    return { thumbnail, quality, width };
+    return { thumbnail, quality, width, height, fileSize };
   }
 
-  async inactiveFiles(ids: string[] | Types.ObjectId[]): Promise<boolean> {
-    const fileIds = ids.map((id) => (typeof id === 'string' ? new Types.ObjectId(id) : id));
+  // async deleteUnusedFiles(): Promise<boolean> {
+  //   const bucketId = await this.backblazeService.getListBucket('zictok-dev');
+  //   const cloudItems = await this.backblazeService.getListFileName(bucketId);
+  //   const files = await this.imageRepository.findAll({}, { select: ['key', 'previewKey', 'thumbKey'] });
 
-    return await this.fileRepository.updateMany({ _id: { $in: fileIds } }, { status: 'inactive' });
-  }
+  //   const localItems: string[] = [];
 
-  async activeFiles(ids: string[] | Types.ObjectId[]): Promise<boolean> {
-    const fileIds = ids.map((id) => (typeof id === 'string' ? new Types.ObjectId(id) : id));
+  //   for (const file of files) {
+  //     const { key, previewKey, thumbKey, folder, previewFolder, thumbFolder } = file;
 
-    return await this.fileRepository.updateMany({ _id: { $in: fileIds } }, { status: 'active' });
-  }
+  //     if (key && folder) {
+  //       localItems.push(`${folder}/${key}`);
+  //     }
+
+  //     if (previewKey && previewFolder) {
+  //       localItems.push(`${previewFolder}/${previewKey}`);
+  //     }
+
+  //     if (thumbKey && thumbFolder) {
+  //       localItems.push(`${thumbFolder}/${thumbKey}`);
+  //     }
+  //   }
+
+  //   const cloudItemNames = cloudItems.map((item) => item.fileName);
+  //   const removeFiles = cloudItemNames.filter((item: string) => !localItems.includes(item));
+  //   const uniqueRemoveFiles = [...new Set(removeFiles as string[])];
+
+  //   if (uniqueRemoveFiles.length === 0) {
+  //     throw new BadRequestException('No files to delete');
+  //   }
+
+  //   const deleteObject = cloudItems.filter((object) => uniqueRemoveFiles.includes(object.fileName as string));
+  //   await this.backblazeService.deleteFiles(deleteObject);
+
+  //   // eslint-disable-next-line no-console
+  //   console.log(deleteObject.map((d, index) => `${index + 1} • ${d.fileName}`).join('\n'));
+
+  //   return true;
+  // }
 }

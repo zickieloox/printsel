@@ -60,9 +60,7 @@ export class ApiConfigService {
     return {
       bucketRegion: this.getString('AWS_S3_BUCKET_REGION'),
       bucketApiVersion: this.getString('AWS_S3_API_VERSION'),
-      bucketName: this.getString('AWS_S3_BUCKET_NAME'),
-      mockupsBucketName: this.getString('AWS_S3_MOCKUPS_BUCKET_NAME'),
-      artworksBucketName: this.getString('AWS_S3_ARTWORK_BUCKET_NAME'),
+      imagesBucketName: this.getString('AWS_S3_IMAGES_BUCKET_NAME'),
       accessKey: this.getString('AWS_S3_ACCESS_KEY_ID'),
       secretKey: this.getString('AWS_S3_SECRET_ACCESS_KEY'),
       endpoint: this.getString('AWS_S3_ENDPOINT'),

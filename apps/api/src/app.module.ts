@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AcceptLanguageResolver, HeaderResolver, I18nModule, QueryResolver } from 'nestjs-i18n';
-import * as path from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import dotenv from 'dotenv';
+import { AcceptLanguageResolver, HeaderResolver, I18nModule, QueryResolver } from 'nestjs-i18n';
+import path from 'path';
 import { format, transports } from 'winston';
 import rotateFile from 'winston-daily-rotate-file';
 
@@ -12,27 +13,30 @@ import { AuthModule } from '@/modules/auth/auth.module';
 import { CounterModule } from '@/modules/counter/counter.module';
 // import { CronjobModule } from '@/modules/cronjob/cronjob.module';
 import { PermissionModule } from '@/modules/permission/permission.module';
-// import { RoleModule } from '@/modules/role/role.module';
-
+import { RoleModule } from '@/modules/role/role.module';
+import { UserModule } from '@/modules/user/user.module';
 import { WinstonModule } from '@/modules/winston/winston.module';
+
+import { CategoryModule } from './modules/category/category.module';
+import { ProductModule } from './modules/product/product.module';
+import { ProductVariantModule } from './modules/product-variant/product-variant.module';
+import { UploadModule } from './modules/upload/upload.module';
 import { ApiConfigService } from './shared/services';
 import { SharedModule } from './shared/shared.module';
-// import { UploadModule } from '@/modules/upload/upload.module';
-import { UserModule } from '@/modules/user/user.module';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { OrderModule } from '@/modules/order/order.module';
-import { OrderItemModule } from '@/modules/order-item/order-item.module';
 
 dotenv.config();
 @Module({
   imports: [
     AuthModule,
+    UserModule,
     CounterModule,
     // CronjobModule,
+    RoleModule,
     PermissionModule,
-    // RoleModule,
-    // UploadModule,
-    UserModule,
+    CategoryModule,
+    UploadModule,
+    ProductVariantModule,
+    ProductModule,
     // OrderModule,
     // OrderItemModule,
     ConfigModule.forRoot({
@@ -124,5 +128,11 @@ dotenv.config();
     }),
     // HealthCheckerModule,
   ],
+  // providers: [
+  //   {
+  //     provide: APP_PIPE,
+  //     useValue: new ZodValidationPipe({ errorHttpStatusCode: 422 }),
+  //   },
+  // ],
 })
 export class AppModule {}

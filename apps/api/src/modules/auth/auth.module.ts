@@ -9,9 +9,6 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { PublicStrategy } from './public.strategy';
-import { token } from 'morgan';
-import { use } from 'passport';
-import { date } from 'zod';
 
 @Module({
   imports: [

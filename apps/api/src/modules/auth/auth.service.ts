@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserNotFoundException, validateHash } from 'core';
-import { TokenType } from 'core';
+import { TokenType, UserNotFoundException, validateHash } from 'core';
+import type { LoginDto, RoleType } from 'shared';
 
 import type { UserDocument } from '@/modules/user/user.entity';
 import { UserService } from '@/modules/user/user.service';
 import { ApiConfigService } from '@/shared/services';
 
 import { TokenPayloadDto } from './dtos';
-import { RoleType } from '@/constants';
-import { LoginDto } from '../user/user.dto';
 
 @Injectable()
 export class AuthService {
@@ -46,9 +44,9 @@ export class AuthService {
     });
   }
 
-  async validateUser(LoginDto: LoginDto): Promise<UserDocument> {
+  async validateUser(loginDto: LoginDto): Promise<UserDocument> {
     // if (!this.configService.isTest) {
-    //   const isVerifyRecaptcha = await this.recaptchaService.verifyRecaptcha(LoginDto.recaptchaToken);
+    //   const isVerifyRecaptcha = await this.recaptchaService.verifyRecaptcha(loginDto.recaptchaToken);
 
     //   if (!isVerifyRecaptcha.success) {
     //     throw new BadRequestException('Failed to verify reCAPTCHA');
@@ -59,15 +57,18 @@ export class AuthService {
     //   }
     // }
 
-    const user = await this.userService.findByUsernameOrEmail({
-      email: LoginDto.email,
+    const user = await this.userService.findByIdOrUsernameOrEmail({
+      email: loginDto.email,
     });
 
     if (!user) {
       throw new UserNotFoundException();
     }
 
-    const isPasswordValid = await validateHash(LoginDto.password, user.password);
+    const isPasswordValid = await validateHash(loginDto.password, user.password);
+
+    // @ts-expect-error password
+    delete user.password;
 
     if (!isPasswordValid) {
       throw new UserNotFoundException();

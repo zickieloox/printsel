@@ -1,56 +1,22 @@
 import { Prop, SchemaFactory } from '@nestjs/mongoose';
-import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
+import { assertSameType, DatabaseEntity, DatabaseEntityAbstract } from 'core';
 import type { CallbackWithoutResultAndOptionalError, HydratedDocument } from 'mongoose';
-import { Types } from 'mongoose';
-import { Gender, Status } from 'shared';
+import type { User } from 'shared';
+import { CODE_LENGTH, Gender, ID_LENGTH, PASSWORD_MIN_LENGTH, Status, TelegramConfig } from 'shared';
 
 import type { PermissionDocument } from '@/modules/permission/permission.entity';
-import { RoleDocument } from '@/modules/role/role.entity';
-import { z } from 'zod';
-
-const TelegramConfigZod = z.object({
-  telegramChannelId: z.string(),
-  telegramBotToken: z.string(),
-  isNotificationEnabled: z.boolean(),
-});
-
-export type TelegramConfig = z.infer<typeof TelegramConfigZod>;
-
-export const UserZod = z.object({
-  _id: z.string(),
-
-  fullName: z.string().min(2).max(60),
-  userCode: z.string().length(8),
-  email: z.string().email(),
-  phone: z.string().optional(),
-  balance: z.number().default(0),
-  password: z.string().min(8),
-  gender: z.nativeEnum(Gender).default(Gender.MALE),
-  birthday: z.date().optional(),
-  address: z.string().min(2).max(60).optional(),
-  otherPermissionIds: z.array(z.string()).default([]),
-  status: z.nativeEnum(Status).default(Status.Active),
-  roleId: z.string(),
-  secret: z.string().optional(),
-  twoFactorEnabled: z.boolean().optional(),
-  telegramConfig: TelegramConfigZod.optional(),
-});
-
-export type User = z.infer<typeof UserZod>;
+import type { RoleDocument } from '@/modules/role/role.entity';
 
 @DatabaseEntity({ collection: 'users' })
 export class UserEntity extends DatabaseEntityAbstract {
   @Prop({
     required: true,
-    trim: true,
-    minlength: 2,
-    maxlength: 60,
   })
   fullName: string;
 
   @Prop({
     required: true,
-    length: 8,
+    length: CODE_LENGTH,
   })
   userCode: string;
 
@@ -77,7 +43,7 @@ export class UserEntity extends DatabaseEntityAbstract {
   @Prop({
     required: true,
     trim: true,
-    minlength: 8,
+    minlength: PASSWORD_MIN_LENGTH,
     select: false,
   })
   password: string;
@@ -86,25 +52,22 @@ export class UserEntity extends DatabaseEntityAbstract {
     required: true,
     type: String,
     enum: Gender,
-    default: Gender.MALE,
+    default: Gender.Male,
   })
   gender: Gender;
 
   @Prop()
   birthday?: Date;
 
-  @Prop({
-    trim: true,
-    // minlength: 2,
-    maxlength: 60,
-  })
+  @Prop()
   address?: string;
 
   @Prop({
     required: true,
     type: [
       {
-        type: Types.ObjectId,
+        type: String,
+        length: ID_LENGTH,
         ref: 'PermissionEntity',
       },
     ],
@@ -114,14 +77,14 @@ export class UserEntity extends DatabaseEntityAbstract {
 
   @Prop({
     required: true,
-    type: Number,
+    type: String,
     enum: Status,
     default: 1,
   })
   status: Status;
 
-  @Prop({ type: Types.ObjectId, ref: 'RoleEntity' })
-  roleId: Types.ObjectId | string;
+  @Prop({ type: String, length: ID_LENGTH, ref: 'RoleEntity' })
+  roleId: string;
 
   @Prop()
   secret?: string;
@@ -139,13 +102,26 @@ export class UserEntity extends DatabaseEntityAbstract {
   telegramConfig?: TelegramConfig;
 
   role?: RoleDocument;
+
   otherPermissions?: PermissionDocument[];
 }
 
-// assertSameType<User, UserEntity>();
-// assertSameType<UserEntity, User>();
+assertSameType<User, UserEntity>();
+assertSameType<UserEntity, User>();
 
 export const UserSchema = SchemaFactory.createForClass(UserEntity);
+UserSchema.virtual('role', {
+  ref: 'RoleEntity',
+  localField: 'roleId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+UserSchema.virtual('otherPermissions', {
+  ref: 'RoleEntity',
+  localField: 'otherPermissionIds',
+  foreignField: '_id',
+});
 
 export type UserDocument = HydratedDocument<UserEntity>;
 

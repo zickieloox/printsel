@@ -1,8 +1,8 @@
 import { Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ResponseDto } from 'core';
+import { RoleType } from 'shared';
 
-import { RoleType } from '@/constants';
 import { Auth } from '@/decorators';
 
 import type { CounterEntity } from './counter.entity';

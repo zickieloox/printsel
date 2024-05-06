@@ -4,7 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 export function setupSwagger(app: INestApplication) {
   const documentBuilder = new DocumentBuilder()
-    .setTitle('ZicTok API')
+    .setTitle('Printsel Private API')
     .setDescription(
       `### REST
 
@@ -55,14 +55,19 @@ Routes is following REST standard (Richardson level 3)
     documentBuilder.setVersion(process.env.API_VERSION);
   }
 
-  // patchNestjsSwagger();
+  patchNestjsSwagger();
   const document = SwaggerModule.createDocument(app, documentBuilder.build());
 
-  SwaggerModule.setup('documentation', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
+  SwaggerModule.setup(
+    'documentation',
+    app,
+    { ...document, openapi: '3.1.0' },
+    {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
     },
-  });
+  );
 
   console.info(`Documentation: http://localhost:${process.env.PORT}/documentation`);
 }

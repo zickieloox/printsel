@@ -1,8 +1,8 @@
 import { applyDecorators, SetMetadata, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthGuard, PublicRoute } from 'core';
+import type { RoleType } from 'shared';
 
-import type { RoleType } from '@/constants';
 import { PermissionsGuard, RolesGuard } from '@/guards';
 import { AuthUserInterceptor } from '@/interceptors';
 

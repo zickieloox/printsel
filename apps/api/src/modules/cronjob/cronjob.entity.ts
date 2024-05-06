@@ -6,29 +6,25 @@ import { Status } from 'shared';
 export class CronjobEntity extends DatabaseEntityAbstract {
   @Prop({
     required: true,
-    trim: true,
-    minlength: 2,
-    maxlength: 60,
   })
   name: string;
 
   @Prop({
     required: true,
-    trim: true,
     unique: true,
   })
   code: string;
 
   @Prop({
     required: true,
-    trim: true,
   })
   duration: string;
 
   @Prop({
+    required: true,
     type: String,
     enum: Status,
-    default: Status.INACTIVE,
+    default: Status.Inactive,
   })
   status: Status;
 }

@@ -1,38 +1,38 @@
 /* eslint-disable unicorn/no-array-reduce */
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import type { CreatePermissionDto, UpdatePermissionDto } from 'shared';
 
-import type { CreatePermissionDto, UpdatePermissionDto } from './dtos';
-import { PermissionEntity } from './permission.entity';
+import type { PermissionDocument } from './permission.entity';
 import { PermissionRepository } from './permission.repository';
 
 @Injectable()
 export class PermissionService {
-  constructor(
-    @InjectModel(PermissionEntity.name)
-    private permissionModel: Model<PermissionEntity>,
-    private permissionRepository: PermissionRepository,
-  ) {}
+  constructor(private permissionRepository: PermissionRepository) {}
 
-  public async createPermission(createPermissionDto: CreatePermissionDto): Promise<PermissionEntity> {
+  public async createPermission(createPermissionDto: CreatePermissionDto): Promise<PermissionDocument> {
     return await this.permissionRepository.create({
       ...createPermissionDto,
     });
   }
 
-  async getAllPermissions(): Promise<PermissionEntity[]> {
+  async getAllPermissions(): Promise<PermissionDocument[]> {
     return this.permissionRepository.findAll({}, { select: ['name', 'description', 'status', 'action'] });
   }
 
-  async findOneById(permissionId: string): Promise<PermissionEntity | null> {
+  async findOneById(permissionId: string): Promise<PermissionDocument | null> {
     return this.permissionRepository.findOneById(permissionId);
   }
 
   public async updatePermission(
     permissionId: string,
     updatePermissionDto: UpdatePermissionDto,
-  ): Promise<PermissionEntity | null> {
-    return this.permissionRepository.findOneByIdAndUpdate(permissionId, updatePermissionDto);
+  ): Promise<PermissionDocument> {
+    const permission = await this.permissionRepository.findOneByIdAndUpdate(permissionId, updatePermissionDto);
+
+    if (!permission) {
+      throw new NotFoundException('Permission not found');
+    }
+
+    return permission;
   }
 }

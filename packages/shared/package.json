@@ -27,7 +27,10 @@
     "typescript": "^5.3.2"
   },
   "dependencies": {
+    "@anatine/zod-nestjs": "^2.0.8",
+    "@anatine/zod-openapi": "^2.2.5",
     "axios": "^1.6.2",
+    "nanoid": "^3.3.7",
     "zod": "^3.22.4"
   }
 }

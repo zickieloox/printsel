@@ -1,23 +1,33 @@
 import { Prop, SchemaFactory } from '@nestjs/mongoose';
-import { DatabaseEntity, DatabaseEntityAbstract } from 'core';
+import { assertSameType, DatabaseEntity, DatabaseEntityAbstract } from 'core';
 import type { HydratedDocument } from 'mongoose';
-import mongoose from 'mongoose';
-import { Status } from 'shared';
+import type { ProductVariant } from 'shared';
+import { ID_LENGTH, Status } from 'shared';
 
-import { UserEntity } from '@/modules/user/user.entity';
+import type { UserDocument } from '../user/user.entity';
 
 @DatabaseEntity({ collection: 'productVariants' })
 export class ProductVariantEntity extends DatabaseEntityAbstract {
+  @Prop({
+    length: ID_LENGTH,
+    required: true,
+    ref: 'ProductEntity',
+  })
+  productId: string;
+
+  @Prop({
+    trim: true,
+  })
+  title?: string;
+
   @Prop({
     required: true,
     unique: true,
   })
   code: string;
 
-  @Prop({
-    trim: true,
-  })
-  description: string;
+  @Prop()
+  description?: string;
 
   @Prop({
     type: Number,
@@ -38,28 +48,24 @@ export class ProductVariantEntity extends DatabaseEntityAbstract {
   baseCost: number;
 
   @Prop({
+    required: true,
+    unique: true,
     trim: true,
     uppercase: true,
   })
   sku: string;
 
-  @Prop({
-    trim: true,
-    default: 'Single',
-  })
-  color: string;
+  @Prop()
+  option1: string;
 
-  @Prop({
-    trim: true,
-    default: 'Single',
-  })
-  size: string;
+  @Prop()
+  option2?: string;
 
-  @Prop({
-    trim: true,
-    default: 'Single',
-  })
-  style: string;
+  @Prop()
+  option3?: string;
+
+  @Prop()
+  option4?: string;
 
   @Prop({
     type: String,
@@ -68,27 +74,44 @@ export class ProductVariantEntity extends DatabaseEntityAbstract {
   })
   status: Status;
 
-  @Prop({
-    type: new Object({
-      _id: mongoose.Types.ObjectId,
-      email: String,
-    }),
-    ref: 'UserEntity',
-    default: null,
-  })
-  createdBy: UserEntity;
+  @Prop()
+  note?: string;
 
   @Prop({
-    type: new Object({
-      _id: mongoose.Types.ObjectId,
-      email: String,
-    }),
+    required: true,
+    length: ID_LENGTH,
     ref: 'UserEntity',
-    default: null,
   })
-  updatedBy: UserEntity;
+  createdById: string;
+
+  @Prop({
+    required: true,
+    length: ID_LENGTH,
+    ref: 'UserEntity',
+  })
+  updatedById: string;
+
+  createdBy?: UserDocument;
+
+  updatedBy?: UserDocument;
 }
 
-export type ProductVariantDocument = HydratedDocument<ProductVariantEntity>;
+assertSameType<ProductVariant, ProductVariantEntity>();
+assertSameType<ProductVariantEntity, ProductVariant>();
 
 export const ProductVariantsSchema = SchemaFactory.createForClass(ProductVariantEntity);
+ProductVariantsSchema.virtual('createdBy', {
+  ref: 'UserEntity',
+  localField: 'createdById',
+  foreignField: '_id',
+  justOne: true,
+});
+
+ProductVariantsSchema.virtual('updatedBy', {
+  ref: 'UserEntity',
+  localField: 'updatedById',
+  foreignField: '_id',
+  justOne: true,
+});
+
+export type ProductVariantDocument = HydratedDocument<ProductVariantEntity>;

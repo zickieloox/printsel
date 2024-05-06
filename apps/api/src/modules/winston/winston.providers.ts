@@ -1,9 +1,17 @@
 import type { Provider } from '@nestjs/common';
-import { WINSTON_MODULE_OPTIONS, WINSTON_MODULE_PROVIDER } from 'core';
 import type { LoggerOptions } from 'winston';
 import { createLogger } from 'winston';
 
 import type { IWinstonModuleAsyncOptions, WinstonModuleOptions } from './winston.interfaces';
+
+/**
+ * Token for the type of configuration to be used when declaring in app module
+ */
+export const WINSTON_MODULE_OPTIONS = 'WinstonModuleOptions';
+/**
+ * An identifier for when injecting the winston provider
+ */
+export const WINSTON_MODULE_PROVIDER = 'winston';
 
 /**
  * Constructor a winston provider

@@ -1,24 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import {
-  convertEndDate,
-  convertStartDate,
-  generateHash,
-  generateRandomPassword,
-  UserNotFoundException,
-  validateHash,
-} from 'core';
+import { convertEndDate, convertStartDate, generateHash, OrderDirection, UserNotFoundException } from 'core';
 import type { FilterQuery } from 'mongoose';
-import { Types } from 'mongoose';
-import { customAlphabet } from 'nanoid';
-import { authenticator } from 'otplib';
-import { ENUM_PAGINATION_ORDER_DIRECTION_TYPE } from 'core';
+import { CODE_LENGTH, type CreateUserDto, type GetUsersDto, type GetUsersResDto, type UpdateUserDto } from 'shared';
+
+import { genCode } from '@/utils';
 
 import { RoleRepository } from '../role/role.repository';
 import type { UserDocument, UserEntity } from './user.entity';
 import { UserRepository } from './user.repository';
-import { CreateUserDto, GetUsersDto, GetUsersResDto, UpdateUserDto } from './user.dto';
-
-const customNanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 10);
 
 @Injectable()
 export class UserService {
@@ -32,13 +21,16 @@ export class UserService {
   }
 
   async findOne(findData: FilterQuery<UserEntity>): Promise<UserDocument | null> {
-    // console.log(user);
-
     return await this.userRepository.findOne(findData, { populate: { path: 'role', select: 'name' } });
   }
 
-  findByUsernameOrEmail(options: Partial<{ username: string; email: string }>): Promise<UserDocument | null> {
-    return this.userRepository.findOne(options, { populate: { path: 'role', select: 'name' }, select: ['+password'] });
+  async findByIdOrUsernameOrEmail(
+    options: Partial<{ _id: string; username: string; email: string }>,
+  ): Promise<UserDocument | null> {
+    return await this.userRepository.findOne(options, {
+      populate: { path: 'role', select: 'name' },
+      select: ['+password'],
+    });
   }
 
   async createUser(createUserDto: CreateUserDto): Promise<UserDocument> {
@@ -50,7 +42,7 @@ export class UserService {
       throw new BadRequestException('User already exists');
     }
 
-    const password = 'Prtsel434@1'; // generateRandomPassword(16);
+    const password = createUserDto.password; // generateRandomPassword(16);
     const passwordHash = generateHash(password);
 
     console.log(passwordHash);
@@ -61,14 +53,12 @@ export class UserService {
       throw new BadRequestException('Invalid role');
     }
 
-    const createdUser = await this.userRepository.create({
+    return await this.userRepository.create({
       ...createUserDto,
       password: passwordHash,
-      roleId: new Types.ObjectId(createUserDto.roleId),
-      userCode: customNanoid(6),
+      roleId: createUserDto.roleId,
+      userCode: genCode(CODE_LENGTH),
     });
-
-    return createdUser;
   }
 
   async updateUser(updateUserDto: UpdateUserDto, user: UserDocument): Promise<UserEntity> {
@@ -120,30 +110,19 @@ export class UserService {
   // }
 
   async getUsers(getUsersDto: GetUsersDto): Promise<GetUsersResDto> {
-    const { limit, page, fullName, userCode, email, startDate, endDate, ...filter } = getUsersDto;
+    const { limit, page, startDate, endDate, search } = getUsersDto;
+
     let query = {};
 
-    if (fullName) {
+    if (search) {
       query = {
         $or: [
-          { fullName: { $regex: fullName, $options: 'i' } },
-          { email: { $regex: email, $options: 'i' } },
-          { userCode: { $regex: userCode, $options: 'i' } },
-          { email: { $regex: filter.search, $options: 'i' } },
+          { userCode: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { fullName: { $regex: search, $options: 'i' } },
         ],
       };
     }
-
-    if (filter.search) {
-      query = {
-        $or: [
-          { fullName: { $regex: filter.search, $options: 'i' } },
-          { email: { $regex: filter.search, $options: 'i' } },
-        ],
-      };
-    }
-
-    delete filter.search;
 
     if (startDate && endDate) {
       query = {
@@ -155,30 +134,24 @@ export class UserService {
       };
     }
 
-    const [users, total] = await this.userRepository.findAllAndCount(
+    return await this.userRepository.findAllAndCount(
       {
         ...query,
       },
       {
         paging: {
           limit,
-          skip: limit! * (page! - 1),
+          skip: limit * (page - 1),
         },
         join: {
           path: 'role',
-          select: ['_id', 'name', 'code'],
+          select: ['name', 'code'],
         },
         sort: {
-          updatedAt: ENUM_PAGINATION_ORDER_DIRECTION_TYPE.DESC,
+          updatedAt: OrderDirection.DESC,
         },
       },
     );
-
-    return {
-      /// @ts-ignore
-      data: users,
-      total,
-    };
   }
 
   // async resetPassword(resetPassDto: ResetPassDto): Promise<boolean> {
@@ -235,16 +208,16 @@ export class UserService {
   //   }
   // }
 
-  async getSecret(user: UserDocument): Promise<string> {
-    if (user.twoFactorEnabled) {
-      throw new BadRequestException('2FA is already enabled');
-    }
+  // async getSecret(user: UserDocument): Promise<string> {
+  //   if (user.twoFactorEnabled) {
+  //     throw new BadRequestException('2FA is already enabled');
+  //   }
 
-    const secret = authenticator.generateSecret();
-    await this.userRepository.updateOne({ _idd: user._id }, { secret });
+  //   const secret = authenticator.generateSecret();
+  //   await this.userRepository.updateOne({ _idd: user._id }, { secret });
 
-    return secret;
-  }
+  //   return secret;
+  // }
 
   // async verify2faOtp(user: UserDocument, verify2faOtpDto: Verify2faOtpDto) {
   //   const { _id, secret, twoFactorEnabled } = user;

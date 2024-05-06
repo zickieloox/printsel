@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post, Query, UsePipes } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post, Query } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from 'core';
+import { CreateUserDto, CreateUserResDto, GetMeResDto, LoginDto, LoginResDto } from 'shared';
 import { Logger } from 'winston';
 
 import { Auth } from '@/decorators';
@@ -8,9 +9,6 @@ import { UserDocument } from '@/modules/user/user.entity';
 import { UserService } from '@/modules/user/user.service';
 
 import { AuthService } from './auth.service';
-import { RoleType } from '@/constants';
-import { ZodValidationPipe } from '@anatine/zod-nestjs';
-import { CreateUserResDto, CreateUserDto, GetMeResDto, LoginResDto, LoginDto } from '../user/user.dto';
 
 @Controller('auth')
 @ApiTags('auth')
@@ -26,11 +24,10 @@ export class AuthController {
     summary: 'Login',
   })
   @HttpCode(HttpStatus.OK)
-  @ApiCreatedResponse({
+  @ApiOkResponse({
     type: LoginResDto,
     description: 'User info with access token',
   })
-  @UsePipes(ZodValidationPipe)
   async userLogin(@Body() loginDto: LoginDto): Promise<LoginResDto> {
     this.logger.info({
       message: JSON.stringify({
@@ -46,7 +43,7 @@ export class AuthController {
 
     const token = await this.authService.createAccessToken({
       userId: user._id.toString(),
-      role: user.role?.name!,
+      role: user.role!.name,
     });
 
     // const refreshToken = await this.authService.createRefreshToken({
@@ -56,8 +53,7 @@ export class AuthController {
     return {
       userId: user._id.toString(),
       accessToken: token.accessToken,
-      /// @ts-ignore
-      user: user,
+      user,
       // refreshToken: refreshToken
     };
   }
@@ -68,10 +64,9 @@ export class AuthController {
     summary: 'Create user',
   })
   @HttpCode(HttpStatus.OK)
-  @ApiCreatedResponse({
+  @ApiOkResponse({
     type: CreateUserResDto,
   })
-  @UsePipes(ZodValidationPipe)
   async createUser(
     @Query()
     createUserDto: CreateUserDto,
@@ -86,8 +81,10 @@ export class AuthController {
       }),
     });
 
-    /// @ts-ignore
-    return await this.userService.createUser(createUserDto);
+    return {
+      success: true,
+      data: await this.userService.createUser(createUserDto),
+    };
   }
 
   @Get('/me')
@@ -99,9 +96,7 @@ export class AuthController {
   @ApiOkResponse({
     type: GetMeResDto,
   })
-  @UsePipes(ZodValidationPipe)
   getMe(@AuthUser() user: UserDocument): GetMeResDto {
-    /// @ts-ignore
-    return user;
+    return { success: true, data: user };
   }
 }

@@ -15,13 +15,12 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser, ResponseDto } from 'core';
 import { CronTime } from 'cron';
-import { Status } from 'shared';
+import { RoleType, Status } from 'shared';
 import { Logger } from 'winston';
 
-import { RoleType } from '@/constants';
 import { Auth } from '@/decorators';
 
-import { UserEntity } from '../user/user.entity';
+import { UserDocument } from '../user/user.entity';
 import { CronjobService } from './cronjob.service';
 import { CreateCronjobDto } from './dtos';
 
@@ -78,7 +77,7 @@ export class CronjobController {
         url: '/cronjobs/:id',
         message: 'Get cronjob',
         user,
-        param: {
+        params: {
           id: _id,
         },
       }),
@@ -111,7 +110,7 @@ export class CronjobController {
         url: '/cronjobs/:id',
         message: 'Update cronjob',
         user,
-        param: {
+        params: {
           id,
         },
         body: createCronjobDto,
@@ -149,7 +148,7 @@ export class CronjobController {
         url: '/cronjobs/:id',
         message: 'Delete cronjob',
         user,
-        param: {
+        params: {
           id,
         },
       }),

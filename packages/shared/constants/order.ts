@@ -1,66 +1,67 @@
-export enum Order {
-  ASC = 'ASC',
-  DESC = 'DESC',
-}
-
 export enum OrderStatus {
-  NO_ARTWORK = 'no_artwork',
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  IN_PRODUCTION = 'in_production',
-  PRODUCED = 'produced',
-  PACKAGED = 'packaged',
-  READY_FOR_DELIVERY = 'ready_for_delivery',
-  PRE_TRANSIT = 'pre_transit',
-  IN_TRANSIT = 'in_transit',
-  PARTIALLY_DELIVERED = 'partially_delivered',
-  DELIVERED = 'delivered',
-  DONE = 'done',
-  CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
-  RETURNED = 'returned',
-  ARTWORK_ERROR = 'artwork_error',
+  NoArtwork = 'NoArtwork',
+  Pending = 'Pending',
+  OnHold = 'OnHold',
+  Processing = 'Processing',
+  InProduction = 'InProduction',
+  Produced = 'Produced',
+  Packaging = 'Packaging',
+  PickupReady = 'PickupReady',
+  PreTransit = 'PreTransit',
+  InTransit = 'InTransit',
+  PartiallyDelivered = 'PartiallyDelivered',
+  Delivered = 'Delivered',
+  Completed = 'Completed',
+
+  Cancelled = 'Cancelled',
+  Refunded = 'Refunded',
+  PartiallyRefunded = 'PartiallyRefunded',
+  Returned = 'Returned',
+  ArtworkError = 'ArtworkError',
 }
 
 export enum ShippingMethod {
-  STANDARD = 'standard',
-  EXPEDITED = 'expedited',
+  Standard = 'Standard',
+  Expedited = 'Expedited',
 }
 
 export enum OrderItemStatus {
-  NO_ARTWORK = 'no_artwork',
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  IN_PRODUCTION = 'in_production',
-  PRODUCED = 'produced',
-  READY_FOR_DELIVERY = 'ready_for_delivery',
-  PRE_TRANSIT = 'pre_transit',
-  IN_TRANSIT = 'in_transit',
-  DELIVERED = 'delivered',
-  DONE = 'done',
-  REFUNDED = 'refunded',
-  RETURNED = 'returned',
-  ARTWORK_ERROR = 'artwork_error',
+  NoArtwork = 'NoArtwork',
+  Pending = 'Pending',
+  OnHold = 'OnHold',
+  Processing = 'Processing',
+  InProduction = 'InProduction',
+  Produced = 'Produced',
+  PickupReady = 'PickupReady',
+  PreTransit = 'PreTransit',
+  InTransit = 'InTransit',
+  Delivered = 'Delivered',
+  Completed = 'Completed',
+
+  Cancelled = 'Cancelled',
+  Refunded = 'Refunded',
+  PartiallyRefunded = 'PartiallyRefunded',
+  Returned = 'Returned',
+  ArtworkError = 'ArtworkError',
 }
 
 export enum OrderType {
-  MANUAL = 'manual',
-  IMPORT = 'import',
-  BULK = 'bulk',
+  Manual = 'Manual',
+  Import = 'Import',
+  Bulk = 'Bulk',
 }
 
 export enum ShippingStatus {
-  PENDING = 'Pending',
-  ACCEPTED = 'Picked Up',
-  AWAITING = 'Awaiting',
-  IN_TRANSIT = 'In Transit',
-  DELIVERED = 'Delivered',
-  ADDRESS_ERROR = 'Address Error',
+  Pending = 'Pending',
+  PickedUp = 'PickedUp',
+  Awaiting = 'Awaiting',
+  InTransit = 'InTransit',
+  Delivered = 'Delivered',
+  AddressError = 'AddressError',
 }
 
-export const shippingStatusMapping = [
-  { status: ShippingStatus.AWAITING, event: 'USPS Awaiting Item' },
-  { status: ShippingStatus.ACCEPTED, event: 'USPS picked up item' },
-  { status: ShippingStatus.IN_TRANSIT, event: 'Arrived' },
-  { status: ShippingStatus.DELIVERED, event: 'delivered' },
-];
+export enum FulfillPlatform {
+  OnosPod = 'OnosPod',
+  BeeFun = 'BeeFun',
+  // SwiftPod = 'SwiftPod',
+}

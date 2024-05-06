@@ -1,16 +1,15 @@
-// upload.module.ts
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
-// import { ArtworkEntity, ArtworkSchema } from '@/modules/artwork/artwork.entity';
-// import { ArtworkRepository } from '@/modules/artwork/artwork.repository';
-// import { MockupEntity, MockupSchema } from '@/modules/mockup/mockup.entity';
-// import { MockupRepository } from '@/modules/mockup/mockup.repository';
-import { UserEntity, UserSchema } from '@/modules/user/user.entity';
 import { SharedModule } from '@/shared/shared.module';
 
-import { FileEntity, FileSchema } from './file.entity';
-import { FileRepository } from './file.repository';
+import { MockupEntity, MockupSchema } from '../mockup/mockup.entity';
+import { MockupRepository } from '../mockup/mockup.repository';
+import { UserEntity, UserSchema } from '../user/user.entity';
+import { ImageEntity, ImageSchema } from './image.entity';
+import { ImageRepository } from './image.repository';
+import { UniqueImageEntity, UniqueImageSchema } from './unique-image.entity';
+import { UniqueImageRepository } from './unique-image.repository';
 import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 
@@ -19,31 +18,31 @@ import { UploadService } from './upload.service';
     SharedModule,
     MongooseModule.forFeature([
       {
-        name: FileEntity.name,
-        schema: FileSchema,
+        name: ImageEntity.name,
+        schema: ImageSchema,
       },
     ]),
-    // MongooseModule.forFeature([
-    //   {
-    //     name: ArtworkEntity.name,
-    //     schema: ArtworkSchema,
-    //   },
-    // ]),
+    MongooseModule.forFeature([
+      {
+        name: UniqueImageEntity.name,
+        schema: UniqueImageSchema,
+      },
+    ]),
     MongooseModule.forFeature([
       {
         name: UserEntity.name,
         schema: UserSchema,
       },
     ]),
-    // MongooseModule.forFeature([
-    //   {
-    //     name: MockupEntity.name,
-    //     schema: MockupSchema,
-    //   },
-    // ]),
+    MongooseModule.forFeature([
+      {
+        name: MockupEntity.name,
+        schema: MockupSchema,
+      },
+    ]),
   ],
   controllers: [UploadController],
-  providers: [UploadService, FileRepository],
-  exports: [UploadService, FileRepository],
+  providers: [UploadService, ImageRepository, UniqueImageRepository, MockupRepository],
+  exports: [UploadService],
 })
 export class UploadModule {}
